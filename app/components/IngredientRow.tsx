@@ -1,3 +1,5 @@
+import { useToast } from "../context/ToastContext";
+
 interface IngredientProps {
     name: string;
     source?: string;
@@ -6,6 +8,8 @@ interface IngredientProps {
 }
 
 export default function IngredientRow({ name, source, price, status }: IngredientProps) {
+    const { showToast } = useToast();
+
     const statusColors = {
         searching: "text-[var(--text-muted)]",
         found: "text-[var(--status-success)]",
@@ -18,11 +22,20 @@ export default function IngredientRow({ name, source, price, status }: Ingredien
         out_of_stock: "Out of Stock",
     };
 
+    const handleToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            showToast(`Added ${name} to cart`, "success");
+        } else {
+            showToast(`Removed ${name} from cart`, "neutral");
+        }
+    };
+
     return (
         <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] transition-colors group">
             <div className="flex items-center gap-3">
                 <input
                     type="checkbox"
+                    onChange={handleToggle}
                     className="w-4 h-4 rounded border-[var(--border-subtle)] bg-transparent checked:bg-[var(--accent-primary)] accent-[var(--accent-primary)] cursor-pointer"
                 />
                 <div>

@@ -46,18 +46,45 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Feature Grid Mockup (Visual Only) */}
-      <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl px-4 z-10 animate-fade-in" style={{ animationDelay: "0.5s" }}>
-        {[
-          { title: "Visual Recognition", desc: "Upload food pics. We identify ingredients instantly via Vision AI." },
-          { title: "Macro Precision", desc: "Tailored to your protein, calorie, and taste requirements." },
-          { title: "Smart Sourcing", desc: "We find the best groceries near you via API integration." }
-        ].map((feature, i) => (
-          <div key={i} className="glass-panel p-8 rounded-2xl hover-glow">
-            <h3 className="text-xl font-semibold mb-3 text-[var(--text-primary)]">{feature.title}</h3>
-            <p className="text-[var(--text-muted)] text-sm">{feature.desc}</p>
+      {/* Feature Grid Mockup */}
+      <div id="features" className="mt-32 w-full max-w-6xl px-4 z-10 animate-fade-in" style={{ animationDelay: "0.5s" }}>
+
+        {/* How It Works Section */}
+        <div className="mb-32">
+          <h2 className="text-3xl md:text-5xl font-bold text-center mb-16 text-[var(--text-primary)]">
+            From <span className="text-[var(--accent-primary)]">Fridge</span> to <span className="text-[var(--status-success)]">Feast</span>
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {[
+              { step: "01", title: "Snap", desc: "Take a photo of your open fridge or pantry." },
+              { step: "02", title: "Analyze", desc: "Aura's vision engine identifies every ingredient." },
+              { step: "03", title: "Plan", desc: "Get personalized recipes based on what you have." },
+              { step: "04", title: "Order", desc: "Missing something? We auto-fill your cart." }
+            ].map((item, i) => (
+              <div key={i} className="relative p-6 glass-panel rounded-2xl border-t border-[var(--border-active)]">
+                <div className="text-6xl font-black text-[var(--border-subtle)] absolute -top-8 left-4 opacity-50">{item.step}</div>
+                <h3 className="text-xl font-bold mt-4 mb-2 text-[var(--text-primary)] relative z-10">{item.title}</h3>
+                <p className="text-[var(--text-secondary)] text-sm relative z-10">{item.desc}</p>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Feature Deep Dive */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { title: "Visual Recognition", desc: "Upload food pics. We identify ingredients instantly via Vision AI." },
+            { title: "Macro Precision", desc: "Tailored to your protein, calorie, and taste requirements." },
+            { title: "Smart Sourcing", desc: "We find the best groceries near you via API integration." }
+          ].map((feature, i) => (
+            <div key={i} className="glass-panel p-8 rounded-2xl hover-glow">
+              <h3 className="text-xl font-semibold mb-3 text-[var(--text-primary)]">{feature.title}</h3>
+              <p className="text-[var(--text-muted)] text-sm">{feature.desc}</p>
+            </div>
+          ))}
+        </div>
+
       </div>
     </main>
   );

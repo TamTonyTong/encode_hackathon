@@ -1,22 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export default function ChatInterface() {
-    const [messages, setMessages] = useState([
-        { role: "ai", content: "Hello! Upload a photo of your ingredients or tell me what you're craving. I'll handle the rest." },
-    ]);
+export interface Message {
+    role: "ai" | "user";
+    content: string;
+}
+
+interface ChatInterfaceProps {
+    messages: Message[];
+    onSendMessage: (text: string) => void;
+}
+
+export default function ChatInterface({ messages, onSendMessage }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to bottom
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     const handleSend = () => {
         if (!input.trim()) return;
-        setMessages([...messages, { role: "user", content: input }]);
+        onSendMessage(input);
         setInput("");
-
-        // Mock AI response
-        setTimeout(() => {
-            setMessages(prev => [...prev, { role: "ai", content: "I'm analyzing that for you. Give me a moment..." }]);
-        }, 1000);
     };
 
     return (
@@ -38,7 +46,7 @@ export default function ChatInterface() {
                         className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                         <div
-                            className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${msg.role === "user"
+                            className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed animate-fade-in ${msg.role === "user"
                                     ? "bg-[var(--accent-primary)] text-black rounded-tr-sm font-medium"
                                     : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-tl-sm"
                                 }`}
@@ -47,6 +55,7 @@ export default function ChatInterface() {
                         </div>
                     </div>
                 ))}
+                <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
