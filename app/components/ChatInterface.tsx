@@ -10,9 +10,10 @@ export interface Message {
 interface ChatInterfaceProps {
     messages: Message[];
     onSendMessage: (text: string) => void;
+    isLoading?: boolean;
 }
 
-export default function ChatInterface({ messages, onSendMessage }: ChatInterfaceProps) {
+export default function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
