@@ -5,7 +5,9 @@ import { GeneratedRecipe } from '../services/chatService';
 
 interface RecipeContextType {
     generatedRecipes: GeneratedRecipe[];
+    activeRecipe: GeneratedRecipe | null;
     addRecipe: (recipe: GeneratedRecipe) => void;
+    setActiveRecipe: (recipe: GeneratedRecipe | null) => void;
     clearRecipes: () => void;
 }
 
@@ -13,6 +15,7 @@ const RecipeContext = createContext<RecipeContextType | undefined>(undefined);
 
 export function RecipeProvider({ children }: { children: React.ReactNode }) {
     const [generatedRecipes, setGeneratedRecipes] = useState<GeneratedRecipe[]>([]);
+    const [activeRecipe, setActiveRecipeState] = useState<GeneratedRecipe | null>(null);
 
     const addRecipe = (recipe: GeneratedRecipe) => {
         setGeneratedRecipes(prev => {
@@ -22,12 +25,23 @@ export function RecipeProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
+    const setActiveRecipe = (recipe: GeneratedRecipe | null) => {
+        setActiveRecipeState(recipe);
+    };
+
     const clearRecipes = () => {
         setGeneratedRecipes([]);
+        setActiveRecipeState(null);
     };
 
     return (
-        <RecipeContext.Provider value={{ generatedRecipes, addRecipe, clearRecipes }}>
+        <RecipeContext.Provider value={{ 
+            generatedRecipes, 
+            activeRecipe, 
+            addRecipe, 
+            setActiveRecipe, 
+            clearRecipes 
+        }}>
             {children}
         </RecipeContext.Provider>
     );
