@@ -72,13 +72,13 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
 
     return (
         <div
-            className={`flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden h-[600px] transition-all duration-300 ${isDragging ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-glow)]/10" : ""}`}
+            className={`flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden h-[600px] transition-all duration-300 border border-[var(--border-subtle)] ${isDragging ? "ring-2 ring-[var(--accent-primary)] bg-[var(--accent-glow)]/10" : ""}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
             {/* Header */}
-            <div className="p-4 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-glass)] backdrop-blur-md sticky top-0 z-10">
+            <div className="p-4 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-glass)]/70 backdrop-blur-xl sticky top-0 z-10">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <div className="w-3 h-3 rounded-full bg-[var(--status-success)] animate-pulse" />
@@ -131,7 +131,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-[var(--bg-glass)] border-t border-[var(--border-subtle)] relative z-20">
+            <div className="p-4 bg-[var(--bg-glass)]/70 border-t border-[var(--border-subtle)] backdrop-blur-xl relative z-20">
                 {/* Image Preview */}
                 {preview && (
                     <div className="mb-3 relative inline-block group">

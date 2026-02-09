@@ -76,10 +76,10 @@ export default function GroceryPage() {
     return (
         <div className="h-[calc(100vh-8rem)] flex flex-col gap-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 shrink-0">
                 <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-1">
-                        <h1 className="text-3xl font-bold text-[var(--text-primary)]">{t("grocery.title")}</h1>
+                    <div className="flex items-center gap-4 mb-2">
+                        <h1 className="text-4xl font-bold text-[var(--text-primary)] text-balance">{t("grocery.title")}</h1>
                         <LanguageToggle />
                     </div>
                     <p className="text-[var(--text-secondary)]">{t("grocery.subtitle")}</p>
@@ -121,16 +121,16 @@ export default function GroceryPage() {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {bestDeals.map(item => (
-                                    <div key={item.id} className="glass-panel p-4 rounded-xl border-l-4 border-l-[var(--accent-primary)]">
+                                    <div key={item.id} className="glass-panel p-4 rounded-xl border border-[var(--border-subtle)] border-l-4 border-l-[var(--accent-primary)] hover:border-[var(--border-hover)] transition-colors duration-200">
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="text-2xl">{item.image}</span>
                                             <span className="text-xs font-bold bg-[var(--accent-primary)] text-black px-2 py-1 rounded-full">
                                                 {t("grocery.save")} {Math.round((1 - item.bestPrice/item.basePrice) * 100)}%
                                             </span>
                                         </div>
-                                        <h3 className="font-bold text-[var(--text-primary)] truncate">{item.name[language]}</h3>
-                                        <p className="text-lg font-bold text-[var(--accent-primary)] mt-1">{formatCurrency(item.bestPrice)}</p>
-                                        <p className="text-xs text-[var(--text-muted)]">{t("grocery.avg")}: {formatCurrency(item.basePrice)}</p>
+                                        <h3 className="font-bold text-[var(--text-primary)] truncate text-balance">{item.name[language]}</h3>
+                                        <p className="text-lg font-bold text-[var(--accent-primary)] mt-2">{formatCurrency(item.bestPrice)}</p>
+                                        <p className="text-xs text-[var(--text-muted)] mt-1">{t("grocery.avg")}: {formatCurrency(item.basePrice)}</p>
                                     </div>
                                 ))}
                             </div>
@@ -168,7 +168,7 @@ export default function GroceryPage() {
                                 </div>
                             ) : (
                                 displayedItems.map(item => (
-                                    <div key={item.id} className="glass-panel rounded-xl p-5 hover:border-[var(--border-active)] transition-colors">
+                                    <div key={item.id} className="glass-panel rounded-xl p-5 border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors duration-200">
                                         <div className="flex justify-between items-start mb-4">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 bg-[var(--bg-surface)] rounded-full flex items-center justify-center text-2xl">

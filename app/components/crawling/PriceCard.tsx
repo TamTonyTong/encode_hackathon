@@ -1,4 +1,6 @@
 
+"use client";
+
 import { PricePoint } from "../../lib/mockData";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -16,17 +18,17 @@ export default function PriceCard({ priceData, bestPrice }: { priceData: PricePo
 
     return (
         <div className={`
-            flex items-center justify-between p-3 rounded-lg border transition-all duration-300
+            flex items-center justify-between p-3 rounded-lg border-l-4 border transition-all duration-200
             ${isBestPrice 
-                ? "bg-[var(--accent-glow)] border-[var(--accent-primary)]" 
-                : "bg-[var(--bg-surface)] border-[var(--border-subtle)] opacity-80"}
+                ? "bg-[var(--accent-glow)] border-l-[var(--accent-primary)] border-[var(--border-hover)] shadow-md" 
+                : "bg-[var(--bg-surface)] border-l-transparent border-[var(--border-subtle)] hover:border-[var(--border-hover)]"}
         `}>
             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 flex items-center justify-center text-xl bg-black/20 rounded-full">
+                <div className="w-8 h-8 flex items-center justify-center text-xl bg-[var(--background)]/60 rounded-full border border-[var(--border-subtle)]">
                     {priceData.logo}
                 </div>
                 <div>
-                    <p className={`text-sm font-bold ${isBestPrice ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
+                    <p className={`text-sm font-bold transition-colors duration-200 ${isBestPrice ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
                         {priceData.storeName[language]}
                     </p>
                     <p className="text-xs text-[var(--text-muted)]">
@@ -36,11 +38,11 @@ export default function PriceCard({ priceData, bestPrice }: { priceData: PricePo
             </div>
             
             <div className="text-right">
-                <p className={`text-lg font-bold ${isBestPrice ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
+                <p className={`text-lg font-bold transition-colors duration-200 ${isBestPrice ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}>
                     {formattedPrice}
                 </p>
                 {isBestPrice && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent-primary)] bg-[var(--accent-primary)]/10 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent-primary)] bg-[var(--accent-primary)]/15 px-2 py-1 rounded-full block mt-1">
                         {t("grocery.best_deal")}
                     </span>
                 )}

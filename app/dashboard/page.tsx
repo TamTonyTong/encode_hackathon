@@ -150,12 +150,12 @@ export default function DashboardPage() {
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-6rem)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-6rem)]">
             {/* Left Column: Chat Interface */}
-            <div className="flex flex-col gap-4 h-full">
+            <div className="flex flex-col gap-5 h-full">
                 {/* Header with Language Toggle */}
-                <div className="flex items-center justify-between shrink-0 px-1">
-                    <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+                <div className="flex items-center justify-between shrink-0">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
                         {language === 'vi' ? "Trợ Lý Bếp AI" : "Kitchen Assistant AI"}
                     </h1>
                     <LanguageToggle />
@@ -171,9 +171,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Right Column: Recipe & Grocery Context */}
-            <div className="flex flex-col gap-4 h-full min-h-0">
-                <div className="px-1 flex items-center justify-between shrink-0">
-                    <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+            <div className="flex flex-col gap-5 h-full min-h-0">
+                <div className="flex items-center justify-between shrink-0">
+                    <h2 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
                         {language === 'vi' ? "Bảng Kế Hoạch" : "Active Plan"}
                     </h2>
                     {currentRecipe && (
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                     )}
                 </div>
 
-                <div className="flex-1 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden shadow-xl border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl">
+                <div className="flex-1 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl shadow-lg">
                     {/* Empty State */}
                     {!currentRecipe && ingredients.length === 0 && (
                         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                     {/* Recipe Card */}
                     {currentRecipe && (
                         <div className="shrink-0 mb-6 p-5 bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-surface)]/50 rounded-2xl border border-[var(--border-subtle)] shadow-sm group hover:border-[var(--accent-primary)] transition-colors relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--accent-primary)]/5 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110" />
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--accent-primary)]/5 rounded-bl-full -mr-4 -mt-4 transition-transform duration-300 group-hover:scale-110" />
 
                             <div className="flex items-start gap-4 relative z-10">
                                 <div className="text-4xl bg-[var(--background)] p-3 rounded-xl shadow-sm ring-1 ring-[var(--border-subtle)]">
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                                 </span>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                                 {ingredients.map((ing, i) => (
                                     <IngredientRow
                                         key={i}

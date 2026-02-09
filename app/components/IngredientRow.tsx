@@ -1,3 +1,5 @@
+"use client";
+
 import { useToast } from "../context/ToastContext";
 
 interface IngredientProps {
@@ -31,12 +33,12 @@ export default function IngredientRow({ name, source, price, status }: Ingredien
     };
 
     return (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] transition-colors group">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-colors duration-200 group">
             <div className="flex items-center gap-3">
                 <input
                     type="checkbox"
                     onChange={handleToggle}
-                    className="w-4 h-4 rounded border-[var(--border-subtle)] bg-transparent checked:bg-[var(--accent-primary)] accent-[var(--accent-primary)] cursor-pointer"
+                    className="w-4 h-4 rounded-md border border-[var(--border-subtle)] bg-transparent checked:bg-[var(--accent-primary)] accent-[var(--accent-primary)] cursor-pointer transition-colors duration-200"
                 />
                 <div>
                     <p className="font-medium text-[var(--text-primary)] text-sm">{name}</p>
@@ -48,7 +50,7 @@ export default function IngredientRow({ name, source, price, status }: Ingredien
 
             <div className="text-right">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{price || "--"}</p>
-                <p className={`text-[10px] lowercase tracking-wider ${statusColors[status]}`}>
+                <p className={`text-[10px] lowercase tracking-wider font-medium ${statusColors[status]}`}>
                     {statusText[status]}
                 </p>
             </div>
