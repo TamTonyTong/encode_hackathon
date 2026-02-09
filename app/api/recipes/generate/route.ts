@@ -1,36 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RecipeGenerateRequest, RecipeGenerateResponse } from '@/app/types/api';
-import { MOCK_RECIPES } from '@/app/lib/mockData';
+import { suggestRecipes } from '@/app/lib/agentTools';
 
 export async function POST(request: NextRequest) {
   try {
     const body: RecipeGenerateRequest = await request.json();
-    
-    // TODO: Replace with actual AI service call
-    // Example:
-    // const recipes = await openai.chat.completions.create({
-    //   model: "gpt-4",
-    //   messages: [{
-    //     role: "user",
-    //     content: `Generate Vietnamese recipes using: ${body.ingredients?.join(', ')}`
-    //   }]
-    // });
-    
-    // For now, return mock data filtered by preferences
-    let filteredRecipes = [...MOCK_RECIPES];
-    
-    // Simple filtering example (expand when AI is integrated)
-    if (body.preferences?.maxCalories) {
-      filteredRecipes = filteredRecipes.filter(
-        r => r.calories <= (body.preferences?.maxCalories || Infinity)
-      );
+
+    // Build a query from the request. If ingredients are provided, join them.
+    // This endpoint is typically called programmatically, not by chat.
+    const queryParts: string[] = [];
+    if (body.ingredients && body.ingredients.length > 0) {
+      queryParts.push(`Using ingredients: ${body.ingredients.join(', ')}`);
     }
-    
+    if (body.preferences?.cuisine) {
+      queryParts.push(`cuisine: ${body.preferences.cuisine}`);
+    }
+    const query = queryParts.length > 0 ? queryParts.join('. ') : 'random recipe';
+
+    // Use the intelligent recipe agent
+    const result = await suggestRecipes({
+      query,
+      ingredients: body.ingredients,
+      language: body.language || 'en'
+    });
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to generate recipes');
+    }
+
+    const data = result.data as any;
+
+    const primaryRecipe = data.recipe;
+    const recipes = [primaryRecipe];
+
     const response: RecipeGenerateResponse = {
-      recipes: filteredRecipes,
-      totalCount: filteredRecipes.length
+      recipes: recipes,
+      totalCount: recipes.length
     };
-    
+
     return NextResponse.json(response);
   } catch (error) {
     console.error('Recipe generation error:', error);

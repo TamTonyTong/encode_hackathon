@@ -50,11 +50,18 @@ export default function DashboardPage() {
         setIsLoading(true);
 
         try {
-            // Call the chat API with message AND image
+            const history: { role: 'user' | 'assistant'; content: string; image?: string }[] = messages.map(m => ({
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: m.content,
+                image: m.image || undefined
+            }));
+
+            // Call the chat API with message AND image AND history
             const response = await ChatService.sendMessage({
                 message: text || (image ? "What can I make with these ingredients?" : "Hello"),
                 image: image || undefined,
-                language: language
+                language: language,
+                conversationHistory: history
             });
 
             // Build the AI message with tool call indicators
@@ -64,7 +71,8 @@ export default function DashboardPage() {
                 toolCalls: response.toolCalls?.map(tc => ({
                     name: tc.toolName,
                     status: tc.success ? 'success' as const : 'error' as const
-                }))
+                })),
+                recipe: response.recipe // Pass the recipe to the chat interface
             };
             setMessages(prev => [...prev, aiMsg]);
 
@@ -209,9 +217,17 @@ export default function DashboardPage() {
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--accent-primary)]/5 rounded-bl-full -mr-4 -mt-4 transition-transform duration-300 group-hover:scale-110" />
 
                                 <div className="flex items-start gap-4 relative z-10">
-                                    <div className="text-4xl bg-[var(--background)] p-3 rounded-xl shadow-sm ring-1 ring-[var(--border-subtle)]">
-                                        {currentRecipe.image}
-                                    </div>
+                                    {currentRecipe.image.startsWith('http') ? (
+                                        <img
+                                            src={currentRecipe.image}
+                                            alt={currentRecipe.title[language]}
+                                            className="w-24 h-24 rounded-xl object-cover shadow-sm ring-1 ring-[var(--border-subtle)]"
+                                        />
+                                    ) : (
+                                        <div className="text-4xl bg-[var(--background)] p-3 rounded-xl shadow-sm ring-1 ring-[var(--border-subtle)]">
+                                            {currentRecipe.image}
+                                        </div>
+                                    )}
                                     <div>
                                         <h3 className="font-bold text-lg text-[var(--text-primary)] mb-1">
                                             {currentRecipe.title[language]}
@@ -221,7 +237,7 @@ export default function DashboardPage() {
                                                 ⏱️ {currentRecipe.time[language]}
                                             </span>
                                             <span className="flex items-center gap-1 bg-[var(--background)] px-2 py-1 rounded-md border border-[var(--border-subtle)]">
-                                                🔥 {currentRecipe.calories} kcal
+                                                🔥 {currentRecipe.calories ? `${currentRecipe.calories} kcal` : 'N/A'}
                                             </span>
                                         </div>
                                     </div>

@@ -7,6 +7,7 @@ interface ChatRequest {
   message: string;
   image?: string;
   language: 'en' | 'vi';
+  conversationHistory?: { role: 'user' | 'assistant'; content: string; image?: string }[];
 }
 
 interface ChatResponse {
@@ -20,13 +21,14 @@ interface ChatResponse {
 export async function POST(request: NextRequest) {
   try {
     const body: ChatRequest = await request.json();
-    const { message, image, language } = body;
+    const { message, image, language, conversationHistory } = body;
 
     // Run the AI agent with tools
     const agentResult = await runAgent({
       message,
       image,
-      language
+      language,
+      conversationHistory
     });
 
     const response: ChatResponse = {

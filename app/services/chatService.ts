@@ -4,6 +4,7 @@ export interface ChatMessage {
   message: string;
   image?: string;
   language: 'en' | 'vi';
+  conversationHistory?: { role: 'user' | 'assistant'; content: string; image?: string }[];
 }
 
 export interface RecipeIngredient {

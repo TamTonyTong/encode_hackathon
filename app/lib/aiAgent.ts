@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import {
     ToolCallResult,
     analyzeIngredients,
@@ -14,7 +15,7 @@ export interface AgentRequest {
     message: string;
     image?: string;
     language: 'en' | 'vi';
-    conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+    conversationHistory?: { role: 'user' | 'assistant'; content: string; image?: string }[];
 }
 
 export interface AgentResponse {
@@ -30,184 +31,7 @@ export interface AgentResponse {
 }
 
 // =============================================================================
-// Intent Detection
-// =============================================================================
-
-type IntentType = 'analyze_ingredients' | 'suggest_recipes' | 'find_grocery_deals' | 'general';
-
-interface DetectedIntent {
-    type: IntentType;
-    confidence: number;
-}
-
-const INTENT_PATTERNS: Record<IntentType, RegExp[]> = {
-    analyze_ingredients: [
-        /what('s| is| are)? (in|inside)/i,
-        /fridge|refrigerator|pantry/i,
-        /these ingredients/i,
-        /i have/i,
-        /what can i (make|cook)/i,
-        /(identify|detect|analyze|scan)/i,
-        /tủ lạnh|nguyên liệu|đồ ăn/i,
-        /tôi có/i,
-    ],
-    suggest_recipes: [
-        /recipe|món|dish/i,
-        /cook|nấu|làm/i,
-        /suggest|gợi ý|recommend/i,
-        /(make|prepare) (something|food)/i,
-        /hungry|đói/i,
-        /what (should|can) (i|we) (eat|cook|make)/i,
-        /ăn gì/i,
-    ],
-    find_grocery_deals: [
-        /buy|mua|shop|purchase/i,
-        /price|giá|cost/i,
-        /deal|sale|discount|khuyến mãi|giảm giá/i,
-        /where (to|can) (get|buy|find)/i,
-        /grocery|siêu thị|chợ/i,
-        /order|đặt hàng/i,
-    ],
-    general: [
-        /^(hi|hello|hey|xin chào|chào)/i,
-        /help|giúp/i,
-        /thank|cảm ơn/i,
-    ]
-};
-
-function detectIntent(message: string, hasImage: boolean): DetectedIntent[] {
-    const intents: DetectedIntent[] = [];
-
-    // Image + message strongly suggests ingredient analysis
-    if (hasImage) {
-        intents.push({ type: 'analyze_ingredients', confidence: 0.9 });
-    }
-
-    // Check patterns
-    for (const [intentType, patterns] of Object.entries(INTENT_PATTERNS)) {
-        for (const pattern of patterns) {
-            if (pattern.test(message)) {
-                const existing = intents.find(i => i.type === intentType);
-                if (existing) {
-                    existing.confidence = Math.min(existing.confidence + 0.2, 1.0);
-                } else {
-                    intents.push({
-                        type: intentType as IntentType,
-                        confidence: 0.7
-                    });
-                }
-            }
-        }
-    }
-
-    // Sort by confidence
-    intents.sort((a, b) => b.confidence - a.confidence);
-
-    // Default to recipe suggestion if no clear intent
-    if (intents.length === 0) {
-        intents.push({ type: 'suggest_recipes', confidence: 0.5 });
-    }
-
-    return intents;
-}
-
-// =============================================================================
-// Agent Orchestrator
-// =============================================================================
-
-export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
-    const { message, image, language } = request;
-    const toolCalls: ToolCallResult[] = [];
-    let reply = '';
-    let recipe: GeneratedRecipe | undefined;
-    let ingredients: string[] | undefined;
-    let groceryDeals: AgentResponse['groceryDeals'] | undefined;
-
-    // Detect user intent
-    const intents = detectIntent(message, !!image);
-    const primaryIntent = intents[0];
-
-    // Handle general intents without tools
-    if (primaryIntent.type === 'general') {
-        reply = getGeneralResponse(message, language);
-        return { reply, toolCalls };
-    }
-
-    // Execute tools based on intent
-    if (primaryIntent.type === 'analyze_ingredients' || (image && primaryIntent.confidence > 0.5)) {
-        // Step 1: Analyze ingredients
-        const analyzeResult = await analyzeIngredients({
-            image,
-            text: !image ? message : undefined,
-            language
-        });
-        toolCalls.push(analyzeResult);
-
-        if (analyzeResult.success) {
-            const data = analyzeResult.data as { ingredients: string[]; source: string };
-            ingredients = data.ingredients;
-
-            // Step 2: Auto-suggest recipes based on detected ingredients
-            const recipeResult = await suggestRecipes({
-                ingredients,
-                language
-            });
-            toolCalls.push(recipeResult);
-
-            if (recipeResult.success) {
-                const recipeData = recipeResult.data as { recipe: GeneratedRecipe };
-                recipe = recipeData.recipe;
-
-                reply = language === 'vi'
-                    ? `Tôi thấy bạn có: **${ingredients.join(', ')}**\n\nDựa trên nguyên liệu này, tôi gợi ý món **${recipe.title.vi}**! 🍳`
-                    : `I see you have: **${ingredients.join(', ')}**\n\nBased on these ingredients, I suggest **${recipe.title.en}**! 🍳`;
-            }
-        }
-    } else if (primaryIntent.type === 'suggest_recipes') {
-        // Recipe suggestion
-        const recipeResult = await suggestRecipes({
-            language
-        });
-        toolCalls.push(recipeResult);
-
-        if (recipeResult.success) {
-            const recipeData = recipeResult.data as { recipe: GeneratedRecipe };
-            recipe = recipeData.recipe;
-
-            reply = language === 'vi'
-                ? `Tuyệt vời! Tôi gợi ý món **${recipe.title.vi}** - một món ăn đậm đà hương vị Việt Nam! 🍗\n\nMón này cần ${recipe.ingredients.length} nguyên liệu và mất khoảng ${recipe.time.vi}.`
-                : `Great choice! I recommend **${recipe.title.en}** - a delicious Vietnamese classic! 🍗\n\nThis dish needs ${recipe.ingredients.length} ingredients and takes about ${recipe.time.en}.`;
-        }
-    } else if (primaryIntent.type === 'find_grocery_deals') {
-        // Grocery shopping
-        const items = extractItemsFromMessage(message);
-        const dealsResult = await findGroceryDeals({
-            items,
-            language
-        });
-        toolCalls.push(dealsResult);
-
-        if (dealsResult.success) {
-            groceryDeals = dealsResult.data as AgentResponse['groceryDeals'];
-
-            reply = language === 'vi'
-                ? `🛒 Tôi đã tìm được giá tốt nhất cho bạn!\n\nBạn có thể tiết kiệm đến **${groceryDeals?.totalSavings}** khi mua ở các cửa hàng gần đây.`
-                : `🛒 I found the best prices for you!\n\nYou can save up to **${groceryDeals?.totalSavings}** by shopping at nearby stores.`;
-        }
-    }
-
-    // Fallback if no tools succeeded
-    if (!reply) {
-        reply = language === 'vi'
-            ? 'Xin lỗi, tôi không hiểu yêu cầu. Bạn có thể hỏi về công thức nấu ăn hoặc tải ảnh nguyên liệu!'
-            : "Sorry, I didn't understand. Try asking about recipes or upload a photo of ingredients!";
-    }
-
-    return { reply, toolCalls, recipe, ingredients, groceryDeals };
-}
-
-// =============================================================================
-// Helper Functions
+// Helper Functions (Shared)
 // =============================================================================
 
 function getGeneralResponse(message: string, language: 'en' | 'vi'): string {
@@ -236,16 +60,260 @@ function getGeneralResponse(message: string, language: 'en' | 'vi'): string {
         : "I'm ready to help! Ask about recipes or upload ingredient photos.";
 }
 
-function extractItemsFromMessage(message: string): string[] {
-    // Simple extraction - look for comma-separated items or common ingredient words
-    const commonItems = [
-        'chicken', 'pork', 'beef', 'fish', 'rice', 'garlic', 'onion', 'chili',
-        'gà', 'heo', 'bò', 'cá', 'gạo', 'tỏi', 'hành', 'ớt'
-    ];
+// =============================================================================
+// Agent Orchestrator with Gemini 2.0 Flash
+// =============================================================================
 
-    const found = commonItems.filter(item =>
-        message.toLowerCase().includes(item.toLowerCase())
-    );
+export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
+    const { message, image, language, conversationHistory } = request;
+    const toolCalls: ToolCallResult[] = [];
+    let recipe: GeneratedRecipe | undefined;
+    let ingredients: string[] | undefined;
+    let groceryDeals: AgentResponse['groceryDeals'] | undefined;
 
-    return found.length > 0 ? found : ['chicken', 'rice', 'vegetables'];
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.warn("Missing GEMINI_API_KEY. Using legacy regex logic.");
+        return runLegacyRegexAgent(request);
+    }
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            tools: [{
+                functionDeclarations: [
+                    {
+                        name: "detect_ingredients_from_image",
+                        description: "Detect ingredients from an image. You MUST list the visible ingredients found in the image.",
+                        parameters: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                ingredients_found: { type: SchemaType.STRING, description: "Call this with the comma-separated list of ingredients you see in the image." }
+                            },
+                            required: ["ingredients_found"]
+                        }
+                    },
+                    {
+                        name: "suggest_recipes",
+                        description: "Suggest recipes based on user query and preferences.",
+                        parameters: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                query: { type: SchemaType.STRING, description: "The user's query describing what they want to cook." },
+                                ingredients: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of ingredients available." }
+                            },
+                            required: ["query"]
+                        }
+                    },
+                    {
+                        name: "find_deals",
+                        description: "Find grocery deals for specific items.",
+                        parameters: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                items: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of items to buy." }
+                            },
+                            required: ["items"]
+                        }
+                    }
+                ]
+            }]
+        });
+
+        // Optimize history: Keep only last 10 turns to reduce token usage
+        let optimizedHistory = conversationHistory?.slice(-10).map(h => {
+            const parts: any[] = [{ text: h.content }];
+            if (h.image) {
+                const base64Data = h.image.split(',')[1];
+                if (base64Data) {
+                    parts.unshift({
+                        inlineData: {
+                            mimeType: "image/jpeg",
+                            data: base64Data
+                        }
+                    });
+                }
+            }
+            return {
+                role: h.role === 'user' ? 'user' : 'model',
+                parts: parts
+            };
+        }) || [];
+
+        // Gemini requires history to start with a user message
+        if (optimizedHistory.length > 0 && optimizedHistory[0].role === 'model') {
+            optimizedHistory = optimizedHistory.slice(1);
+        }
+
+        const chat = model.startChat({
+            history: optimizedHistory
+        });
+
+        let parts: any[] = [{ text: message }];
+        if (image) {
+            const base64Data = image.split(',')[1];
+            if (base64Data) {
+                parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg",
+                        data: base64Data
+                    }
+                });
+                parts.push({ text: "Please analyze this image for ingredients first." });
+            }
+        }
+
+        // Retry logic for rate limits
+        const sendMessageWithRetry = async (msgParts: any[], retries = 3): Promise<any> => {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    return await chat.sendMessage(msgParts);
+                } catch (err: any) {
+                    if (err.status === 429 && i < retries - 1) {
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        console.warn(`Rate limited. Retrying in ${delay}ms...`);
+                        await new Promise(r => setTimeout(r, delay));
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+        };
+
+        const result = await sendMessageWithRetry(parts);
+        const response = await result.response;
+        const functionCalls = response.functionCalls();
+
+        let finalReply = response.text();
+
+        // Handle tool calls
+        if (functionCalls && functionCalls.length > 0) {
+            for (const call of functionCalls) {
+                if (call.name === "detect_ingredients_from_image") {
+                    const args = call.args as any;
+                    // Pass the model's detected ingredients to the tool
+                    const toolResult = await analyzeIngredients({
+                        image: image,
+                        text: args.ingredients_found,
+                        language
+                    });
+
+                    toolCalls.push(toolResult);
+                    if (toolResult.success) {
+                        const data = toolResult.data as any;
+                        ingredients = data.ingredients;
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "detect_ingredients_from_image",
+                                response: { name: "detect_ingredients_from_image", content: data }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    }
+                } else if (call.name === "suggest_recipes") {
+                    const args = call.args as any;
+                    const toolResult = await suggestRecipes({
+                        query: args.query || message,
+                        ingredients: args.ingredients || ingredients,
+                        language
+                    });
+                    toolCalls.push(toolResult);
+                    if (toolResult.success) {
+                        const data = toolResult.data as any;
+                        recipe = data.recipe;
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "suggest_recipes",
+                                response: { name: "suggest_recipes", content: { recipeTitle: recipe?.title[language] } }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    } else {
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "suggest_recipes",
+                                response: { name: "suggest_recipes", content: { error: "Failed to find recipe" } }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    }
+
+                } else if (call.name === "find_deals") {
+                    const args = call.args as any;
+                    const toolResult = await findGroceryDeals({
+                        items: args.items,
+                        language
+                    });
+                    toolCalls.push(toolResult);
+                    if (toolResult.success) {
+                        const data = toolResult.data as any;
+                        groceryDeals = data;
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "find_deals",
+                                response: { name: "find_deals", content: { totalSavings: data.totalSavings } }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    }
+                }
+            }
+        }
+
+        return {
+            reply: finalReply,
+            toolCalls,
+            recipe,
+            ingredients,
+            groceryDeals
+        };
+
+    } catch (e: any) {
+        console.error("Gemini Agent Error:", e);
+        // Fallback for 429 specifically
+        if (e.status === 429) {
+            return {
+                reply: language === 'vi'
+                    ? "😓 Server đang quá tải, vui lòng thử lại sau vài giây."
+                    : "😓 Server is busy (Rate Limit). Please try again in a moment.",
+                toolCalls: []
+            };
+        }
+        // If it's not a rate limit error, return the actual error instead of the "Missing API Key" message
+        return {
+            reply: language === 'vi'
+                ? `⚠️ Đã xảy ra lỗi: ${e.message || "Không xác định"}`
+                : `⚠️ An error occurred: ${e.message || "Unknown error"}`,
+            toolCalls: []
+        };
+    }
+}
+
+
+// =============================================================================
+// Legacy Regex Agent (Fallback)
+// =============================================================================
+
+function runLegacyRegexAgent(request: AgentRequest): AgentResponse {
+    const { message, image, language } = request;
+    const toolCalls: ToolCallResult[] = [];
+
+    // Simple regex detection for legacy fallback
+    const lowerMessage = message.toLowerCase();
+
+    // Check for general greetings/help first
+    if (/^(hi|hello|hey|xin chào|chào)|help|giúp|thank|cảm ơn/i.test(lowerMessage)) {
+        return {
+            reply: getGeneralResponse(message, language),
+            toolCalls: []
+        };
+    }
+
+    return {
+        reply: language === 'vi'
+            ? "⚠️ Vui lòng thêm **GEMINI_API_KEY** vào file `.env.local` để sử dụng trí tuệ nhân tạo Gemini 2.0 Flash."
+            : "⚠️ Please add your **GEMINI_API_KEY** to `.env.local` to enable Gemini 2.0 Flash AI features.",
+        toolCalls: [],
+    };
 }

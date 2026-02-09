@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { GeneratedRecipe } from "../services/chatService";
 
 export interface ToolCallDisplay {
     name: string;
@@ -12,6 +13,7 @@ export interface Message {
     content: string;
     image?: string | null;
     toolCalls?: ToolCallDisplay[];
+    recipe?: GeneratedRecipe;
 }
 
 interface ChatInterfaceProps {
@@ -110,7 +112,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                         <div
                             className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === "user"
                                 ? "bg-[var(--accent-primary)] text-white rounded-tr-sm font-medium"
-                                : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-tl-sm"
+                                : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-tl-sm w-full"
                                 }`}
                         >
                             {msg.image && (
@@ -149,6 +151,55 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                                     ))}
                                 </div>
                             )}
+
+                            {/* Recipe Card */}
+                            {msg.recipe && (
+                                <div className="mb-4 bg-[var(--bg-glass)] rounded-xl overflow-hidden border border-[var(--border-subtle)]">
+                                    <div className="relative h-48">
+                                        <img
+                                            src={msg.recipe.image}
+                                            alt={msg.recipe.title.en}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                // Fallback if image fails or is emoji
+                                                if (msg.recipe?.image && !msg.recipe.image.startsWith('http')) {
+                                                    e.currentTarget.style.display = 'none';
+                                                }
+                                            }}
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
+                                            <div>
+                                                <h3 className="text-white font-bold text-lg">{msg.recipe.title.en}</h3>
+                                                <div className="flex gap-2 text-white/80 text-xs mt-1">
+                                                    <span>⏱️ {msg.recipe.time.en}</span>
+                                                    <span>🔥 {msg.recipe.calories || 'N/A'} kcal</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4">
+                                        <h4 className="font-semibold text-[var(--accent-primary)] text-xs uppercase tracking-wider mb-3">Ingredients</h4>
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                            {msg.recipe.ingredients.map((ing, i) => (
+                                                <div key={i} className="flex flex-col items-center text-center p-2 rounded-lg bg-[var(--bg-surface)] hover:bg-[var(--accent-primary)]/10 transition-colors group">
+                                                    <div className="w-10 h-10 mb-1 rounded-full overflow-hidden bg-white p-1 border border-[var(--border-subtle)]">
+                                                        <img
+                                                            src={`https://www.themealdb.com/images/ingredients/${encodeURIComponent(ing.name.en)}.png`}
+                                                            alt={ing.name.en}
+                                                            className="w-full h-full object-contain"
+                                                            onError={(e) => { e.currentTarget.src = "https://www.themealdb.com/images/ingredients/Lime.png"; }} // Fallback
+                                                        />
+                                                    </div>
+                                                    <span className="text-[10px] font-medium truncate w-full" title={ing.name.en}>{ing.name.en}</span>
+                                                    <span className="text-[9px] text-[var(--text-muted)] truncate w-full">{ing.amount}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="whitespace-pre-wrap">{msg.content}</div>
                         </div>
                     </div>
