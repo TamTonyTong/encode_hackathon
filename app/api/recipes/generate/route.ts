@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RecipeGenerateRequest, RecipeGenerateResponse } from '@/app/types/api';
-import { suggestRecipes } from '@/app/lib/agentTools';
+import { suggestRecipes, getRecipeDetails } from '@/app/lib/agentTools';
 
 export async function POST(request: NextRequest) {
   try {
     const body: RecipeGenerateRequest = await request.json();
 
-    // Build a query from the request. If ingredients are provided, join them.
-    // This endpoint is typically called programmatically, not by chat.
-    const queryParts: string[] = [];
+    // Build a user query from the request parameters
+    let userQuery = 'random recipe';
+
     if (body.ingredients && body.ingredients.length > 0) {
-      queryParts.push(`Using ingredients: ${body.ingredients.join(', ')}`);
+      userQuery = `recipe with ${body.ingredients.join(', ')}`;
     }
     if (body.preferences?.cuisine) {
-      queryParts.push(`cuisine: ${body.preferences.cuisine}`);
+      userQuery = `${body.preferences.cuisine} ${userQuery}`;
     }
-    const query = queryParts.length > 0 ? queryParts.join('. ') : 'random recipe';
 
-    // Use the intelligent recipe agent
+    // Use the recipe worker agent to get suggestions
     const result = await suggestRecipes({
-      query,
+      userQuery,
       ingredients: body.ingredients,
       language: body.language || 'en'
     });
@@ -29,13 +28,27 @@ export async function POST(request: NextRequest) {
     }
 
     const data = result.data as any;
+    const suggestions = data.suggestions || [];
 
-    const primaryRecipe = data.recipe;
-    const recipes = [primaryRecipe];
+    if (suggestions.length === 0) {
+      throw new Error('No recipes found');
+    }
+
+    // Get full details for the first suggestion
+    const detailsResult = await getRecipeDetails({
+      recipeName: suggestions[0].title,
+      language: body.language || 'en'
+    });
+
+    if (!detailsResult.success || !detailsResult.data) {
+      throw new Error('Failed to get recipe details');
+    }
+
+    const primaryRecipe = (detailsResult.data as any).recipe;
 
     const response: RecipeGenerateResponse = {
-      recipes: recipes,
-      totalCount: recipes.length
+      recipes: [primaryRecipe],
+      totalCount: 1
     };
 
     return NextResponse.json(response);

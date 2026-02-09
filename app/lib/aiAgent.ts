@@ -3,6 +3,7 @@ import {
     ToolCallResult,
     analyzeIngredients,
     suggestRecipes,
+    getRecipeDetails,
     findGroceryDeals
 } from './agentTools';
 import { GeneratedRecipe } from '../services/chatService';
@@ -79,8 +80,42 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
+
+        // Build system instruction with language context
+        const systemInstruction = `You are Aura AI, a helpful cooking and meal planning assistant.
+
+LANGUAGE:
+- User's language: ${language === 'vi' ? 'Vietnamese (Tiếng Việt)' : 'English'}
+- Always respond in the user's language
+- You may translate recipe titles when displaying to user, but ALWAYS use englishTitle for API calls
+
+RECIPE SEARCH FLOW:
+1. When user asks for recipes, call suggest_recipes with their query
+2. Check the response for "isFallback" and "note" fields
+3. If isFallback is TRUE:
+   - The exact dish was NOT found in the database
+   - Present the "note" field to explain this to the user
+   - Show the alternative suggestions but clarify they are similar dishes
+4. If isFallback is FALSE:
+   - Good match! Present the suggestions as options
+5. When user selects a recipe, call get_recipe_details with the recipe's ENGLISH TITLE (englishTitle field)
+   - CRITICAL: Always use the englishTitle from suggestions, NOT a translated name
+6. Present the full recipe details from the API response
+
+IMPORTANT RULES:
+- ONLY present recipe data from the API. NEVER make up ingredients or cooking steps.
+- When calling get_recipe_details, use the EXACT englishTitle from suggestions (e.g., "Chicken Basquaise" not "Gà Basquaise")
+- When isFallback is true, be HONEST that the exact dish wasn't found.
+
+TOOLS:
+- suggest_recipes: Search for recipes. Returns suggestions with englishTitle + isFallback flag.
+- get_recipe_details: Get full recipe. MUST use englishTitle from suggestions.
+- detect_ingredients_from_image: When user uploads food/ingredient image
+- find_deals: Find grocery prices`;
+
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
+            systemInstruction: systemInstruction,
             tools: [{
                 functionDeclarations: [
                     {
@@ -89,21 +124,42 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
                         parameters: {
                             type: SchemaType.OBJECT,
                             properties: {
-                                ingredients_found: { type: SchemaType.STRING, description: "Call this with the comma-separated list of ingredients you see in the image." }
+                                ingredients_found: { type: SchemaType.STRING, description: "Comma-separated list of ingredients you see in the image." }
                             },
                             required: ["ingredients_found"]
                         }
                     },
                     {
                         name: "suggest_recipes",
-                        description: "Suggest recipes based on user query and preferences.",
+                        description: "Search for recipes. Returns top 5 suggestions. User should choose one to get full details.",
                         parameters: {
                             type: SchemaType.OBJECT,
                             properties: {
-                                query: { type: SchemaType.STRING, description: "The user's query describing what they want to cook." },
-                                ingredients: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of ingredients available." }
+                                user_query: {
+                                    type: SchemaType.STRING,
+                                    description: "The user's request for recipes (can be in any language)"
+                                },
+                                ingredients: {
+                                    type: SchemaType.ARRAY,
+                                    items: { type: SchemaType.STRING },
+                                    description: "Optional list of available ingredients"
+                                }
                             },
-                            required: ["query"]
+                            required: ["user_query"]
+                        }
+                    },
+                    {
+                        name: "get_recipe_details",
+                        description: "Get full recipe details. IMPORTANT: Use the englishTitle from suggestions, NOT a translated name.",
+                        parameters: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                recipe_name: {
+                                    type: SchemaType.STRING,
+                                    description: "The ENGLISH recipe title (englishTitle field from suggestions). Example: 'Chicken Basquaise' not 'Gà Basquaise'"
+                                }
+                            },
+                            required: ["recipe_name"]
                         }
                     },
                     {
@@ -213,19 +269,32 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
                     }
                 } else if (call.name === "suggest_recipes") {
                     const args = call.args as any;
+                    console.log('[Agent] Delegating to Recipe Worker with query:', args.user_query);
                     const toolResult = await suggestRecipes({
-                        query: args.query || message,
+                        userQuery: args.user_query || message,
                         ingredients: args.ingredients || ingredients,
                         language
                     });
                     toolCalls.push(toolResult);
+
                     if (toolResult.success) {
                         const data = toolResult.data as any;
-                        recipe = data.recipe;
+                        // Pass the suggestions list with fallback info to the model
                         const toolResponse = await sendMessageWithRetry([{
                             functionResponse: {
                                 name: "suggest_recipes",
-                                response: { name: "suggest_recipes", content: { recipeTitle: recipe?.title[language] } }
+                                response: {
+                                    name: "suggest_recipes",
+                                    content: {
+                                        suggestions: data.suggestions,
+                                        totalFound: data.totalFound,
+                                        userQuery: data.userQuery,
+                                        searchTerm: data.searchTerm,
+                                        isFallback: data.isFallback,
+                                        isExactMatch: data.isExactMatch,
+                                        note: data.note
+                                    }
+                                }
                             }
                         }]);
                         finalReply = toolResponse.response.text();
@@ -233,7 +302,48 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
                         const toolResponse = await sendMessageWithRetry([{
                             functionResponse: {
                                 name: "suggest_recipes",
-                                response: { name: "suggest_recipes", content: { error: "Failed to find recipe" } }
+                                response: { name: "suggest_recipes", content: { error: toolResult.error || "No recipes found" } }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    }
+
+                } else if (call.name === "get_recipe_details") {
+                    const args = call.args as any;
+                    console.log('[Agent] Fetching recipe details for:', args.recipe_name);
+                    const toolResult = await getRecipeDetails({
+                        recipeName: args.recipe_name,
+                        language
+                    });
+                    toolCalls.push(toolResult);
+
+                    if (toolResult.success) {
+                        const data = toolResult.data as any;
+                        recipe = data.recipe;
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "get_recipe_details",
+                                response: {
+                                    name: "get_recipe_details",
+                                    content: {
+                                        recipe: {
+                                            title: data.recipe.title,
+                                            ingredients: data.recipe.ingredients,
+                                            steps: data.recipe.steps,
+                                            time: data.recipe.time,
+                                            calories: data.recipe.calories,
+                                            image: data.recipe.image
+                                        }
+                                    }
+                                }
+                            }
+                        }]);
+                        finalReply = toolResponse.response.text();
+                    } else {
+                        const toolResponse = await sendMessageWithRetry([{
+                            functionResponse: {
+                                name: "get_recipe_details",
+                                response: { name: "get_recipe_details", content: { error: toolResult.error || "Recipe not found" } }
                             }
                         }]);
                         finalReply = toolResponse.response.text();
