@@ -164,3 +164,22 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
 }
+
+.scrollbar-gray::-webkit-scrollbar {
+  width: 8px;
+  /* Slightly wider for better visibility */
+}
+
+.scrollbar-gray::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-gray::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.6);
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.scrollbar-gray::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}

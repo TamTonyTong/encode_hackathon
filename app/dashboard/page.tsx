@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import ChatInterface, { Message } from "../components/ChatInterface";
 import IngredientRow from "../components/IngredientRow";
 import { useToast } from "../context/ToastContext";
@@ -20,6 +21,7 @@ export default function DashboardPage() {
     const { showToast } = useToast();
     const { language, t } = useLanguage();
     const { addRecipe } = useRecipes();
+    const router = useRouter();
 
     // State
     const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +37,8 @@ export default function DashboardPage() {
     const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
     const handleOrder = () => {
-        showToast(language === 'vi' ? "Đang xử lý đơn hàng..." : "Processing order...", "success");
+        showToast(language === 'vi' ? "Đang chuyển đến trang mua sắm..." : "Going to grocery page...", "success");
+        router.push('/dashboard/grocery');
     };
 
     const handleSendMessage = async (text: string, image?: string | null) => {
@@ -47,25 +50,23 @@ export default function DashboardPage() {
         setIsLoading(true);
 
         try {
-            // Mock image analysis delay if image is present
-            if (image) {
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                setMessages(prev => [...prev, {
-                    role: "ai",
-                    content: language === 'vi'
-                        ? "Tôi đã thấy các nguyên liệu! Đây là một số gợi ý..."
-                        : "I see those ingredients! Here is what we can make..."
-                }]);
-            }
-
-            // Call the chat API
+            // Call the chat API with message AND image
             const response = await ChatService.sendMessage({
-                message: text || (image ? "Suggest a recipe for these ingredients" : "Hello"),
+                message: text || (image ? "What can I make with these ingredients?" : "Hello"),
+                image: image || undefined,
                 language: language
             });
 
-            // Add AI response
-            setMessages(prev => [...prev, { role: "ai", content: response.reply }]);
+            // Build the AI message with tool call indicators
+            const aiMsg: Message = {
+                role: "ai",
+                content: response.reply,
+                toolCalls: response.toolCalls?.map(tc => ({
+                    name: tc.toolName,
+                    status: tc.success ? 'success' as const : 'error' as const
+                }))
+            };
+            setMessages(prev => [...prev, aiMsg]);
 
             // If a recipe was generated, update the ingredients list
             if (response.recipe) {
@@ -75,7 +76,7 @@ export default function DashboardPage() {
                 addRecipe(response.recipe);
 
                 // Convert recipe ingredients to grocery list format
-                const groceryItems: Ingredient[] = response.recipe.ingredients.map((ing, index) => ({
+                const groceryItems: Ingredient[] = response.recipe.ingredients.map((ing) => ({
                     name: ing.name[language],
                     source: language === 'vi' ? "Đang tìm..." : "Searching...",
                     price: "--",
@@ -150,9 +151,9 @@ export default function DashboardPage() {
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-6rem)]">
+        <div className={`grid gap-8 h-[calc(100vh-6rem)] transition-all duration-500 ease-in-out ${ingredients.length > 0 ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1 max-w-5xl mx-auto w-full"}`}>
             {/* Left Column: Chat Interface */}
-            <div className="flex flex-col gap-5 h-full">
+            <div className="flex flex-col gap-5 h-full transition-all duration-500">
                 {/* Header with Language Toggle */}
                 <div className="flex items-center justify-between shrink-0">
                     <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
@@ -171,120 +172,122 @@ export default function DashboardPage() {
             </div>
 
             {/* Right Column: Recipe & Grocery Context */}
-            <div className="flex flex-col gap-5 h-full min-h-0">
-                <div className="flex items-center justify-between shrink-0">
-                    <h2 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
-                        {language === 'vi' ? "Bảng Kế Hoạch" : "Active Plan"}
-                    </h2>
-                    {currentRecipe && (
-                        <span className="text-xs px-2 py-1 rounded bg-[var(--accent-glow)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/20">
-                            {language === 'vi' ? "Đang nấu" : "Cooking Mode"}
-                        </span>
-                    )}
-                </div>
+            {ingredients.length > 0 && (
+                <div className="flex flex-col gap-5 h-full min-h-0 animate-fade-in">
+                    <div className="flex items-center justify-between shrink-0">
+                        <h2 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
+                            {language === 'vi' ? "Bảng Kế Hoạch" : "Active Plan"}
+                        </h2>
+                        {currentRecipe && (
+                            <span className="text-xs px-2 py-1 rounded bg-[var(--accent-glow)] text-[var(--accent-primary)] border border-[var(--accent-primary)]/20">
+                                {language === 'vi' ? "Đang nấu" : "Cooking Mode"}
+                            </span>
+                        )}
+                    </div>
 
-                <div className="flex-1 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl shadow-lg">
-                    {/* Empty State */}
-                    {!currentRecipe && ingredients.length === 0 && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
-                            <div className="w-20 h-20 mb-4 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center text-4xl shadow-inner">
-                                🍳
-                            </div>
-                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
-                                {language === 'vi' ? "Chưa có kế hoạch" : "No Active Plan"}
-                            </h3>
-                            <p className="text-sm text-[var(--text-secondary)] max-w-xs">
-                                {language === 'vi'
-                                    ? "Trò chuyện với AI để lên thực đơn hoặc tìm công thức nấu ăn ngon."
-                                    : "Chat with AI to generate a meal plan or find delicious recipes."}
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Recipe Card */}
-                    {currentRecipe && (
-                        <div className="shrink-0 mb-6 p-5 bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-surface)]/50 rounded-2xl border border-[var(--border-subtle)] shadow-sm group hover:border-[var(--accent-primary)] transition-colors relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--accent-primary)]/5 rounded-bl-full -mr-4 -mt-4 transition-transform duration-300 group-hover:scale-110" />
-
-                            <div className="flex items-start gap-4 relative z-10">
-                                <div className="text-4xl bg-[var(--background)] p-3 rounded-xl shadow-sm ring-1 ring-[var(--border-subtle)]">
-                                    {currentRecipe.image}
+                    <div className="flex-1 glass-panel rounded-2xl p-6 flex flex-col overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl shadow-lg">
+                        {/* Empty State - Now redundant but kept for structure if needed later */}
+                        {!currentRecipe && ingredients.length === 0 && (
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-60">
+                                <div className="w-20 h-20 mb-4 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center text-4xl shadow-inner">
+                                    🍳
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-[var(--text-primary)] mb-1">
-                                        {currentRecipe.title[language]}
-                                    </h3>
-                                    <div className="flex gap-3 text-xs text-[var(--text-secondary)]">
-                                        <span className="flex items-center gap-1 bg-[var(--background)] px-2 py-1 rounded-md border border-[var(--border-subtle)]">
-                                            ⏱️ {currentRecipe.time[language]}
-                                        </span>
-                                        <span className="flex items-center gap-1 bg-[var(--background)] px-2 py-1 rounded-md border border-[var(--border-subtle)]">
-                                            🔥 {currentRecipe.calories} kcal
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Ingredients List */}
-                    {ingredients.length > 0 && (
-                        <div className="flex-1 flex flex-col min-h-0">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />
-                                    {language === 'vi' ? "Nguyên Liệu Cần Thiết" : "Required Ingredients"}
+                                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                                    {language === 'vi' ? "Chưa có kế hoạch" : "No Active Plan"}
                                 </h3>
-                                <span className="text-xs text-[var(--text-muted)] font-mono">
-                                    {ingredients.filter(i => i.status === 'found').length}/{ingredients.length}
-                                </span>
+                                <p className="text-sm text-[var(--text-secondary)] max-w-xs">
+                                    {language === 'vi'
+                                        ? "Trò chuyện với AI để lên thực đơn hoặc tìm công thức nấu ăn ngon."
+                                        : "Chat with AI to generate a meal plan or find delicious recipes."}
+                                </p>
                             </div>
+                        )}
 
-                            <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
-                                {ingredients.map((ing, i) => (
-                                    <IngredientRow
-                                        key={i}
-                                        name={ing.name}
-                                        source={ing.source}
-                                        price={ing.price}
-                                        status={ing.status}
-                                    />
-                                ))}
-                            </div>
+                        {/* Recipe Card */}
+                        {currentRecipe && (
+                            <div className="shrink-0 mb-6 p-5 bg-gradient-to-br from-[var(--bg-surface)] to-[var(--bg-surface)]/50 rounded-2xl border border-[var(--border-subtle)] shadow-sm group hover:border-[var(--accent-primary)] transition-colors relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--accent-primary)]/5 rounded-bl-full -mr-4 -mt-4 transition-transform duration-300 group-hover:scale-110" />
 
-                            {/* Total & Action */}
-                            <div className="mt-6 pt-4 border-t border-[var(--border-subtle)] bg-[var(--bg-glass)] -mx-6 -mb-6 p-6">
-                                <div className="flex justify-between items-end mb-4">
-                                    <div>
-                                        <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                                            {language === 'vi' ? "Tổng cộng" : "Total Estimated"}
-                                        </p>
-                                        <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                            {calculateTotal()}
-                                        </p>
+                                <div className="flex items-start gap-4 relative z-10">
+                                    <div className="text-4xl bg-[var(--background)] p-3 rounded-xl shadow-sm ring-1 ring-[var(--border-subtle)]">
+                                        {currentRecipe.image}
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-xs text-[var(--status-success)] flex items-center gap-1 justify-end">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)]" />
-                                            {language === 'vi' ? "Đã bao gồm thuế" : "Tax included"}
-                                        </p>
+                                    <div>
+                                        <h3 className="font-bold text-lg text-[var(--text-primary)] mb-1">
+                                            {currentRecipe.title[language]}
+                                        </h3>
+                                        <div className="flex gap-3 text-xs text-[var(--text-secondary)]">
+                                            <span className="flex items-center gap-1 bg-[var(--background)] px-2 py-1 rounded-md border border-[var(--border-subtle)]">
+                                                ⏱️ {currentRecipe.time[language]}
+                                            </span>
+                                            <span className="flex items-center gap-1 bg-[var(--background)] px-2 py-1 rounded-md border border-[var(--border-subtle)]">
+                                                🔥 {currentRecipe.calories} kcal
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={handleOrder}
-                                    className="w-full py-4 bg-[var(--text-primary)] text-[var(--background)] font-bold rounded-xl hover:bg-[var(--accent-primary)] hover:text-white transition-all duration-300 shadow-lg shadow-[var(--accent-glow)] active:scale-[0.98] flex items-center justify-center gap-2"
-                                >
-                                    <span>{language === 'vi' ? "Đặt Hàng Ngay" : "Order Ingredients"}</span>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                        <polyline points="12 5 19 12 12 19"></polyline>
-                                    </svg>
-                                </button>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Ingredients List */}
+                        {ingredients.length > 0 && (
+                            <div className="flex-1 flex flex-col min-h-0">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)]" />
+                                        {language === 'vi' ? "Nguyên Liệu Cần Thiết" : "Required Ingredients"}
+                                    </h3>
+                                    <span className="text-xs text-[var(--text-muted)] font-mono">
+                                        {ingredients.filter(i => i.status === 'found').length}/{ingredients.length}
+                                    </span>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                                    {ingredients.map((ing, i) => (
+                                        <IngredientRow
+                                            key={i}
+                                            name={ing.name}
+                                            source={ing.source}
+                                            price={ing.price}
+                                            status={ing.status}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Total & Action */}
+                                <div className="mt-6 pt-4 border-t border-[var(--border-subtle)] bg-[var(--bg-glass)] -mx-6 -mb-6 p-6">
+                                    <div className="flex justify-between items-end mb-4">
+                                        <div>
+                                            <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                                                {language === 'vi' ? "Tổng cộng" : "Total Estimated"}
+                                            </p>
+                                            <p className="text-2xl font-bold text-[var(--text-primary)]">
+                                                {calculateTotal()}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs text-[var(--status-success)] flex items-center gap-1 justify-end">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[var(--status-success)]" />
+                                                {language === 'vi' ? "Đã bao gồm thuế" : "Tax included"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleOrder}
+                                        className="w-full py-4 bg-[var(--accent-primary)] text-[var(--background)] font-bold rounded-xl hover:text-white transition-all duration-300 shadow-lg shadow-[var(--accent-glow)] active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        <span>{language === 'vi' ? "Đặt Hàng Ngay" : "Order Ingredients"}</span>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            <polyline points="12 5 19 12 12 19"></polyline>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

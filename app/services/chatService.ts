@@ -1,5 +1,8 @@
+import { ToolCallResult } from '../lib/agentTools';
+
 export interface ChatMessage {
   message: string;
+  image?: string;
   language: 'en' | 'vi';
 }
 
@@ -20,7 +23,14 @@ export interface GeneratedRecipe {
 
 export interface ChatResponse {
   reply: string;
+  toolCalls?: ToolCallResult[];
   recipe?: GeneratedRecipe;
+  ingredients?: string[];
+  groceryDeals?: {
+    items: unknown[];
+    bestDeals: unknown[];
+    totalSavings: string;
+  };
 }
 
 export class ChatService {

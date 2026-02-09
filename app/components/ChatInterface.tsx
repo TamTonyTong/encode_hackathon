@@ -2,10 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
+export interface ToolCallDisplay {
+    name: string;
+    status: 'running' | 'success' | 'error';
+}
+
 export interface Message {
     role: "ai" | "user";
     content: string;
     image?: string | null;
+    toolCalls?: ToolCallDisplay[];
 }
 
 interface ChatInterfaceProps {
@@ -103,8 +109,8 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                     >
                         <div
                             className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === "user"
-                                    ? "bg-[var(--accent-primary)] text-white rounded-tr-sm font-medium"
-                                    : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-tl-sm"
+                                ? "bg-[var(--accent-primary)] text-white rounded-tr-sm font-medium"
+                                : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-tl-sm"
                                 }`}
                         >
                             {msg.image && (
@@ -113,6 +119,35 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                                     alt="Uploaded content"
                                     className="mb-3 rounded-lg max-h-60 w-full object-cover border border-white/20"
                                 />
+                            )}
+                            {/* Tool Call Indicators */}
+                            {msg.toolCalls && msg.toolCalls.length > 0 && (
+                                <div className="mb-3 flex flex-wrap gap-2">
+                                    {msg.toolCalls.map((tool, i) => (
+                                        <span
+                                            key={i}
+                                            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${tool.status === 'running'
+                                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                                : tool.status === 'success'
+                                                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                }`}
+                                        >
+                                            {tool.status === 'running' ? (
+                                                <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+                                            ) : tool.status === 'success' ? (
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            ) : (
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            )}
+                                            {tool.name.replace(/_/g, ' ')}
+                                        </span>
+                                    ))}
+                                </div>
                             )}
                             <div className="whitespace-pre-wrap">{msg.content}</div>
                         </div>
@@ -131,7 +166,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-[var(--bg-glass)]/70 border-t border-[var(--border-subtle)] backdrop-blur-xl relative z-20">
+            <div className="p-4 bg-[var(--bg-glass)]/70 border-t border-[var(--border-subtle)] relative z-20">
                 {/* Image Preview */}
                 {preview && (
                     <div className="mb-3 relative inline-block group">
@@ -148,7 +183,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                     </div>
                 )}
 
-                <div className="flex gap-3 items-end">
+                <div className="flex gap-3 items-end justify-between">
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -168,7 +203,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                         </svg>
                     </button>
 
-                    <div className="flex-1 relative">
+                    <div className="flex-1 relative border border-[var(--border-subtle)] rounded-xl">
                         <textarea
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
@@ -179,7 +214,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                                 }
                             }}
                             placeholder="Ask for recipes, meal plans, or upload ingredients..."
-                            className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl pl-4 pr-12 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors placeholder-[var(--text-muted)] resize-none h-[48px] max-h-[120px] custom-scrollbar"
+                            className="w-full bg-[var(--bg-surface)] pl-4 pr-12 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors placeholder-[var(--text-muted)] resize-none h-[48px] max-h-[120px] custom-scrollbar"
                             rows={1}
                         />
                     </div>
@@ -187,7 +222,7 @@ export default function ChatInterface({ messages, onSendMessage, isLoading, onIm
                     <button
                         onClick={handleSend}
                         disabled={!input.trim() && !preview}
-                        className="p-3 bg-[var(--text-primary)] text-[var(--background)] rounded-xl hover:bg-[var(--accent-primary)] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/5"
+                        className="flex h-full p-3 bg-[var(--accent-primary)] rounded-lg text-[var(--background)] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-white/5"
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <line x1="22" y1="2" x2="11" y2="13"></line>

@@ -27,7 +27,7 @@ export default function GroceryPage() {
             image: r.image,
             ingredients: r.ingredients.map((ing, idx) => `ai-${r.id}-${idx}`) // Generate placeholder IDs
         }));
-        return [...aiRecipes, ...MOCK_RECIPES];
+        return [...aiRecipes.filter(ai => !MOCK_RECIPES.some(mock => mock.id === ai.id)), ...MOCK_RECIPES];
     }, [generatedRecipes]);
 
     // 1. Filter prices based on distance and calculate best price
@@ -36,13 +36,13 @@ export default function GroceryPage() {
             // Determine relevant price key based on language
             const priceKey = language === 'vi' ? 'priceVND' : 'priceUSD';
             const basePrice = language === 'vi' ? item.basePriceVND : item.basePriceUSD;
-            
+
             // Filter available prices within range
             const availablePrices = item.prices.filter(p => p.distanceKm <= maxDistance && p.inStock);
-            
+
             // Find best price
-            const bestPrice = availablePrices.length > 0 
-                ? Math.min(...availablePrices.map(p => language === 'vi' ? p.priceVND : p.priceUSD)) 
+            const bestPrice = availablePrices.length > 0
+                ? Math.min(...availablePrices.map(p => language === 'vi' ? p.priceVND : p.priceUSD))
                 : 0;
 
             return {
@@ -63,12 +63,12 @@ export default function GroceryPage() {
             .slice(0, 3);
     }, [processedItems]);
 
-    const displayedItems = selectedRecipe 
+    const displayedItems = selectedRecipe
         ? processedItems.filter(item => allRecipes.find(r => r.id === selectedRecipe)?.ingredients.includes(item.id))
         : processedItems;
 
     const formatCurrency = (amount: number) => {
-        return language === 'vi' 
+        return language === 'vi'
             ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
             : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
     };
@@ -89,7 +89,7 @@ export default function GroceryPage() {
 
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
                 {/* Left Column: Recipes / Inspiration */}
-                <div className="lg:col-span-4 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2">
+                <div className="lg:col-span-4 flex flex-col gap-6 overflow-y-auto scrollbar-gray pr-2">
                     <h2 className="text-xl font-bold text-[var(--text-primary)] sticky top-0 bg-[var(--bg-void)]/95 backdrop-blur z-10 py-2">
                         {t("grocery.plan")}
                         {generatedRecipes.length > 0 && (
@@ -100,18 +100,18 @@ export default function GroceryPage() {
                     </h2>
                     <div className="space-y-4">
                         {allRecipes.map(recipe => (
-                             <RecipeCard 
-                                key={recipe.id} 
-                                recipe={recipe} 
+                            <RecipeCard
+                                key={recipe.id}
+                                recipe={recipe}
                                 onClick={() => setSelectedRecipe(selectedRecipe === recipe.id ? null : recipe.id)}
-                             />
+                            />
                         ))}
                     </div>
                 </div>
 
                 {/* Right Column: Shopping List & Deals */}
-                <div className="lg:col-span-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 pb-10">
-                    
+                <div className="lg:col-span-8 flex flex-col gap-6 overflow-y-auto scrollbar-gray pr-2 pb-10">
+
                     {/* Best Deals Section */}
                     {bestDeals.length > 0 && (
                         <section className="shrink-0">
@@ -125,7 +125,7 @@ export default function GroceryPage() {
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="text-2xl">{item.image}</span>
                                             <span className="text-xs font-bold bg-[var(--accent-primary)] text-black px-2 py-1 rounded-full">
-                                                {t("grocery.save")} {Math.round((1 - item.bestPrice/item.basePrice) * 100)}%
+                                                {t("grocery.save")} {Math.round((1 - item.bestPrice / item.basePrice) * 100)}%
                                             </span>
                                         </div>
                                         <h3 className="font-bold text-[var(--text-primary)] truncate text-balance">{item.name[language]}</h3>
@@ -139,14 +139,14 @@ export default function GroceryPage() {
 
                     {/* Main List */}
                     <section>
-                         <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-4">
                             <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                                {selectedRecipe 
-                                    ? `${t("grocery.ingredients_for")}${MOCK_RECIPES.find(r => r.id === selectedRecipe)?.title[language]}` 
+                                {selectedRecipe
+                                    ? `${t("grocery.ingredients_for")}${MOCK_RECIPES.find(r => r.id === selectedRecipe)?.title[language]}`
                                     : t("grocery.list")}
                             </h2>
                             {selectedRecipe && (
-                                <button 
+                                <button
                                     onClick={() => setSelectedRecipe(null)}
                                     className="text-xs text-[var(--accent-primary)] hover:underline"
                                 >
@@ -159,7 +159,7 @@ export default function GroceryPage() {
                             {displayedItems.length === 0 ? (
                                 <div className="text-center py-10 text-[var(--text-secondary)] glass-panel rounded-xl">
                                     <p>{t("grocery.no_items")} {maxDistance}km.</p>
-                                    <button 
+                                    <button
                                         onClick={() => setMaxDistance(20)}
                                         className="mt-2 text-[var(--accent-primary)] font-bold text-sm"
                                     >
@@ -192,14 +192,14 @@ export default function GroceryPage() {
                                             <p className="text-xs text-[var(--text-muted)] uppercase tracking-wider mb-2 font-bold">{t("grocery.available_at")}</p>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {item.availablePrices
-                                                    .sort((a,b) => (language === 'vi' ? a.priceVND - b.priceVND : a.priceUSD - b.priceUSD))
+                                                    .sort((a, b) => (language === 'vi' ? a.priceVND - b.priceVND : a.priceUSD - b.priceUSD))
                                                     .map((price, idx) => (
-                                                        <PriceCard 
-                                                            key={`${item.id}-${price.storeName.en}`} 
-                                                            priceData={price} 
+                                                        <PriceCard
+                                                            key={`${item.id}-${price.storeName.en}`}
+                                                            priceData={price}
                                                             bestPrice={item.bestPrice}
                                                         />
-                                                ))}
+                                                    ))}
                                             </div>
                                         </div>
                                     </div>
