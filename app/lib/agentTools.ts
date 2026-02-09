@@ -102,88 +102,69 @@ async function getMealDetails(idMeal: string): Promise<any | null> {
     return data.meals?.[0] || null;
 }
 
-// =============================================================================
-// Intent Extraction for Recipe Agent
-// =============================================================================
+/**
+ * Simple search fallback when no Gemini API key is available
+ * Tries basic search strategies without AI
+ */
+async function simpleSearch(query: string, language: 'en' | 'vi'): Promise<ToolCallResult> {
+    console.log(`[RecipeWorker] Simple search for: "${query}"`);
 
-// Known categories from TheMealDB
-const CATEGORIES = ['beef', 'chicken', 'dessert', 'lamb', 'miscellaneous', 'pasta', 'pork', 'seafood', 'side', 'starter', 'vegan', 'vegetarian', 'breakfast', 'goat'];
-
-// Known areas/cuisines from TheMealDB
-const AREAS = ['american', 'british', 'canadian', 'chinese', 'croatian', 'dutch', 'egyptian', 'filipino', 'french', 'greek', 'indian', 'irish', 'italian', 'jamaican', 'japanese', 'kenyan', 'malaysian', 'mexican', 'moroccan', 'polish', 'portuguese', 'russian', 'spanish', 'thai', 'tunisian', 'turkish', 'ukrainian', 'vietnamese'];
-
-interface RecipeIntent {
-    type: 'name' | 'ingredient' | 'category' | 'area' | 'random';
-    value: string;
-    confidence: number;
-}
-
-function extractRecipeIntent(query: string, ingredients?: string[]): RecipeIntent[] {
-    const lowerQuery = query.toLowerCase();
-    const intents: RecipeIntent[] = [];
-
-    // Check for "random" or "surprise me" intent
-    if (/random|surprise|anything|whatever|bất kỳ|ngẫu nhiên/i.test(lowerQuery)) {
-        intents.push({ type: 'random', value: '', confidence: 0.9 });
-    }
-
-    // Check for specific dish names (keywords that suggest a dish)
-    // Common dish patterns
-    const dishKeywords = [
-        'pasta', 'curry', 'soup', 'salad', 'steak', 'burger', 'pizza', 'tacos',
-        'sandwich', 'stir fry', 'noodles', 'rice', 'casserole', 'pie', 'cake',
-        'chicken', 'beef', 'pork', 'fish', 'shrimp', 'lamb',
-        'arrabiata', 'carbonara', 'tikka', 'masala', 'teriyaki', 'pad thai',
-        'phở', 'bánh mì', 'bún', 'cơm', 'gà', 'bò', 'heo'
+    // Try basic search strategies
+    const searchStrategies = [
+        { type: 'name', term: query },
+        { type: 'name', term: query.split(' ')[0] }, // First word
+        { type: 'ingredient', term: query.split(' ')[0] },
     ];
 
-    for (const dish of dishKeywords) {
-        if (lowerQuery.includes(dish)) {
-            intents.push({ type: 'name', value: dish, confidence: 0.85 });
+    let meals: any[] = [];
+    let successfulStrategy: { type: string, term: string } | null = null;
+
+    for (const strategy of searchStrategies) {
+        try {
+            if (strategy.type === 'name') {
+                meals = await searchByName(strategy.term);
+            } else if (strategy.type === 'ingredient') {
+                meals = await filterByIngredient(strategy.term);
+            }
+
+            if (meals.length > 0) {
+                successfulStrategy = strategy;
+                break;
+            }
+        } catch (e) {
+            continue;
         }
     }
 
-    // Check for category matches
-    for (const cat of CATEGORIES) {
-        if (lowerQuery.includes(cat)) {
-            intents.push({ type: 'category', value: cat, confidence: 0.8 });
+    if (meals.length === 0) {
+        // Last resort: random meal
+        meals = await getRandomMeal();
+        successfulStrategy = { type: 'random', term: 'random' };
+    }
+
+    if (meals.length > 0) {
+        const topMeal = meals[0];
+        let mealDetails = topMeal;
+        if (!topMeal.strInstructions) {
+            mealDetails = await getMealDetails(topMeal.idMeal);
+        }
+
+        if (mealDetails) {
+            const recipe = mapMealToRecipe(mealDetails, language);
+            return {
+                toolName: 'suggest_recipes',
+                success: true,
+                data: { recipe, alternatives: [], searchStrategy: successfulStrategy?.type }
+            };
         }
     }
 
-    // Check for area/cuisine matches
-    for (const area of AREAS) {
-        if (lowerQuery.includes(area)) {
-            intents.push({ type: 'area', value: area, confidence: 0.85 });
-        }
-    }
-
-    // If ingredients are provided, use them as a fallback search strategy
-    if (ingredients && ingredients.length > 0) {
-        // Use the most specific/uncommon ingredient for filtering
-        const mainIngredient = ingredients[0]; // Could be smarter here
-        intents.push({ type: 'ingredient', value: mainIngredient, confidence: 0.7 });
-    }
-
-    // Sort by confidence
-    intents.sort((a, b) => b.confidence - a.confidence);
-
-    // If nothing matched, try searching the whole query as a dish name
-    if (intents.length === 0) {
-        // Extract potential dish name from the query
-        // Remove common filler words
-        const cleanedQuery = lowerQuery
-            .replace(/i want|i('d)? like|make me|cook me|suggest|recommend|can you|please|some|a|an|the|for|dinner|lunch|breakfast|meal|food|dish|recipe|món|nấu|làm|gợi ý|muốn ăn|ăn gì/gi, '')
-            .trim();
-
-        if (cleanedQuery.length > 2) {
-            intents.push({ type: 'name', value: cleanedQuery, confidence: 0.6 });
-        } else {
-            // Last resort: random
-            intents.push({ type: 'random', value: '', confidence: 0.3 });
-        }
-    }
-
-    return intents;
+    return {
+        toolName: 'suggest_recipes',
+        success: false,
+        data: null,
+        error: 'No recipes found'
+    };
 }
 
 // =============================================================================
@@ -230,106 +211,221 @@ export async function analyzeIngredients(params: {
         };
     }
 }
-
 /**
- * Intelligent Recipe Agent
- * Understands user intent and queries TheMealDB appropriately.
+ * Recipe Worker Agent
+ * A dedicated agent that autonomously tries different search strategies
+ * until it finds relevant recipes. Uses try-and-error approach.
  */
 export async function suggestRecipes(params: {
-    query: string;
+    userQuery: string;  // Original user query in any language
     ingredients?: string[];
     language: 'en' | 'vi';
 }): Promise<ToolCallResult> {
+    const { userQuery, ingredients, language } = params;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    console.log(`[RecipeWorker] Starting search for: "${userQuery}"`);
+
+    if (!apiKey) {
+        console.warn('[RecipeWorker] No API key, using simple search');
+        return await simpleSearch(userQuery, language);
+    }
+
     try {
-        const { query, ingredients, language } = params;
+        // Import Gemini dynamically to avoid circular dependencies
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(apiKey);
 
-        // 1. Extract intent from the user's query
-        const intents = extractRecipeIntent(query, ingredients);
-        console.log('[RecipeAgent] Detected intents:', intents);
+        // Recipe Worker Agent has its own specialized system instruction
+        const workerInstruction = `You are a Recipe Search Worker. Your ONLY job is to find recipes from TheMealDB API.
 
+TASK: Find recipes matching the user's request: "${userQuery}"
+
+AVAILABLE SEARCH FUNCTIONS:
+- search_by_name(term): Search by dish name (e.g., "chicken curry", "pasta")
+- search_by_ingredient(ingredient): Filter by ingredient (e.g., "chicken", "beef")
+- search_by_area(cuisine): Filter by cuisine (e.g., "Vietnamese", "Thai", "Italian", "Mexican")
+- search_by_category(category): Filter by category (e.g., "Seafood", "Vegetarian", "Dessert")
+
+RULES:
+1. TheMealDB only supports ENGLISH search terms
+2. Translate any non-English dish names to English
+3. Try multiple search strategies until you find results
+4. Start with the most specific search, then broaden if needed
+
+Respond with a JSON object containing your search attempts:
+{
+  "attempts": [
+    { "type": "name", "term": "english search term" },
+    { "type": "ingredient", "term": "main ingredient" },
+    { "type": "area", "term": "cuisine name" }
+  ]
+}
+
+Generate 3-5 different search attempts, from most specific to most general.`;
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: {
+                responseMimeType: "application/json"
+            }
+        });
+
+        // Ask worker to generate search strategies
+        const result = await model.generateContent(workerInstruction);
+        const responseText = result.response.text();
+
+        let searchAttempts: Array<{ type: string, term: string }> = [];
+        try {
+            const parsed = JSON.parse(responseText);
+            searchAttempts = parsed.attempts || [];
+            console.log('[RecipeWorker] Generated search attempts:', searchAttempts);
+        } catch (e) {
+            console.warn('[RecipeWorker] Failed to parse response, using defaults');
+            // Fallback: extract main keyword
+            searchAttempts = [
+                { type: 'name', term: userQuery.split(' ')[0] },
+                { type: 'ingredient', term: 'chicken' }
+            ];
+        }
+
+        // Try each search attempt until we find results
         let meals: any[] = [];
+        let successfulAttempt: { type: string, term: string } | null = null;
 
-        // 2. Try each intent strategy in order of confidence until we get results
-        for (const intent of intents) {
-            if (meals.length > 0) break; // Already found results
+        for (const attempt of searchAttempts) {
+            console.log(`[RecipeWorker] Attempt: ${attempt.type} = "${attempt.term}"`);
 
-            console.log(`[RecipeAgent] Trying strategy: ${intent.type} = "${intent.value}"`);
+            try {
+                switch (attempt.type) {
+                    case 'name':
+                        meals = await searchByName(attempt.term);
+                        break;
+                    case 'ingredient':
+                        meals = await filterByIngredient(attempt.term);
+                        break;
+                    case 'area':
+                        meals = await filterByArea(attempt.term);
+                        break;
+                    case 'category':
+                        meals = await filterByCategory(attempt.term);
+                        break;
+                }
 
-            switch (intent.type) {
-                case 'name':
-                    meals = await searchByName(intent.value);
+                if (meals.length > 0) {
+                    console.log(`[RecipeWorker] SUCCESS! Found ${meals.length} results with ${attempt.type}="${attempt.term}"`);
+                    successfulAttempt = attempt;
                     break;
-                case 'ingredient':
-                    meals = await filterByIngredient(intent.value);
-                    break;
-                case 'category':
-                    meals = await filterByCategory(intent.value);
-                    break;
-                case 'area':
-                    meals = await filterByArea(intent.value);
-                    break;
-                case 'random':
-                    meals = await getRandomMeal();
-                    break;
+                } else {
+                    console.log(`[RecipeWorker] No results for ${attempt.type}="${attempt.term}", trying next...`);
+                }
+            } catch (e) {
+                console.warn(`[RecipeWorker] API error for ${attempt.type}="${attempt.term}":`, e);
             }
         }
 
-        // 3. If still no results, try a random meal as ultimate fallback
+        // If still no results after all attempts
         if (meals.length === 0) {
-            console.log('[RecipeAgent] No results found, falling back to random meal');
-            meals = await getRandomMeal();
-        }
-
-        // 4. If API failed entirely, return failure so the Agent knows
-        if (meals.length === 0) {
-            console.log('[RecipeAgent] API returned no results, and mock fallback is disabled.');
+            console.log('[RecipeWorker] All attempts failed, no recipes found');
             return {
                 toolName: 'suggest_recipes',
                 success: false,
-                data: null,
-                error: 'No recipes found for the given criteria.'
+                data: { userQuery, attempts: searchAttempts },
+                error: `Could not find recipes for "${userQuery}" after trying multiple search strategies.`
             };
         }
 
-        // 5. Get full details for the first (best) meal
-        const topMeal = meals[0];
-        let mealDetails = topMeal;
-
-        // If we only got summary data (from filter endpoints), fetch full details
-        if (!topMeal.strInstructions) {
-            mealDetails = await getMealDetails(topMeal.idMeal);
-            if (!mealDetails) {
-                throw new Error('Failed to fetch recipe details');
-            }
-        }
-
-        // 6. Map to GeneratedRecipe format
-        const recipe = mapMealToRecipe(mealDetails, language);
-
-        // 7. Get summary of alternatives
-        const alternatives = meals.slice(1, 4).map((m: any) => ({
+        // Return top 5 suggestions (just summaries, user will choose)
+        // IMPORTANT: Keep englishTitle for API calls since TheMealDB only works with English
+        const suggestions = meals.slice(0, 5).map((m: any) => ({
             id: m.idMeal,
-            title: { en: m.strMeal, vi: m.strMeal },
-            image: m.strMealThumb
+            title: m.strMeal,           // Original English title (for API)
+            englishTitle: m.strMeal,    // Keep original for API lookup
+            image: m.strMealThumb,
+            category: m.strCategory || null,
+            area: m.strArea || null
         }));
+
+        // Determine if the results are an exact match or a fallback
+        const searchType = successfulAttempt?.type || 'name';
+        const isExactMatch = searchType === 'name'; // Only name search gives exact matches
+        const isFallback = searchType === 'area' || searchType === 'category' || searchType === 'ingredient';
+
+        console.log(`[RecipeWorker] Returning ${suggestions.length} suggestions (exact: ${isExactMatch}, fallback: ${isFallback})`);
 
         return {
             toolName: 'suggest_recipes',
             success: true,
             data: {
-                recipe,
-                alternatives,
-                searchStrategy: intents[0]?.type || 'unknown'
+                suggestions,
+                totalFound: meals.length,
+                searchStrategy: searchType,
+                searchTerm: successfulAttempt?.term || userQuery,
+                userQuery,
+                isExactMatch,
+                isFallback,
+                note: isFallback
+                    ? `Could not find exact match for "${userQuery}". Showing ${searchType} results for "${successfulAttempt?.term}".`
+                    : null
             }
         };
 
     } catch (error) {
-        console.error('[RecipeAgent] Error:', error);
+        console.error('[RecipeWorker] Error:', error);
         return {
             toolName: 'suggest_recipes',
             success: false,
+            data: { userQuery },
+            error: error instanceof Error ? error.message : 'Failed to search for recipes'
+        };
+    }
+}
+
+/**
+ * Get full recipe details by name
+ * Called when user selects a recipe from the suggestions
+ */
+export async function getRecipeDetails(params: {
+    recipeName: string;
+    language: 'en' | 'vi';
+}): Promise<ToolCallResult> {
+    const { recipeName, language } = params;
+
+    console.log(`[RecipeWorker] Fetching details for recipe: "${recipeName}"`);
+
+    try {
+        // Search by name to get the recipe
+        const meals = await searchByName(recipeName);
+
+        if (!meals || meals.length === 0) {
+            console.log(`[RecipeWorker] No recipe found with name "${recipeName}"`);
+            return {
+                toolName: 'get_recipe_details',
+                success: false,
+                data: null,
+                error: `Recipe "${recipeName}" not found`
+            };
+        }
+
+        // Get the first matching result (should be exact or close match)
+        const mealDetails = meals[0];
+
+        console.log(`[RecipeWorker] Found recipe: ${mealDetails.strMeal} (ID: ${mealDetails.idMeal})`);
+
+        const recipe = mapMealToRecipe(mealDetails, language);
+
+        return {
+            toolName: 'get_recipe_details',
+            success: true,
+            data: { recipe }
+        };
+    } catch (error) {
+        console.error('[RecipeWorker] Error fetching details:', error);
+        return {
+            toolName: 'get_recipe_details',
+            success: false,
             data: null,
-            error: error instanceof Error ? error.message : 'Failed to suggest recipes'
+            error: error instanceof Error ? error.message : 'Failed to fetch recipe details'
         };
     }
 }
@@ -414,32 +510,8 @@ function mapMealToRecipe(meal: any, language: 'en' | 'vi'): GeneratedRecipe {
     };
 }
 
-function getDetailedMockRecipe(recipeId: string): GeneratedRecipe {
-    return {
-        id: "ga-xao-xa-ot",
-        title: { en: "Lemongrass Chili Chicken", vi: "Gà Xào Xả Ớt" },
-        time: { en: "30 mins", vi: "30 phút" },
-        calories: 420,
-        image: "🍗",
-        ingredients: [
-            { name: { en: "Chicken thigh (500g)", vi: "Đùi gà (500g)" }, amount: "500g" },
-            { name: { en: "Lemongrass", vi: "Xả" }, amount: "3 stalks" },
-            { name: { en: "Chili", vi: "Ớt" }, amount: "2-3 pcs" },
-            { name: { en: "Garlic", vi: "Tỏi" }, amount: "5 cloves" },
-            { name: { en: "Fish sauce", vi: "Nước mắm" }, amount: "2 tbsp" },
-            { name: { en: "Sugar", vi: "Đường" }, amount: "1 tbsp" },
-            { name: { en: "Cooking oil", vi: "Dầu ăn" }, amount: "3 tbsp" },
-        ],
-        steps: [
-            { en: "Cut chicken into bite-sized pieces, marinate with fish sauce and sugar for 15 mins", vi: "Cắt gà thành miếng vừa ăn, ướp với nước mắm và đường 15 phút" },
-            { en: "Mince lemongrass and chili finely", vi: "Băm nhỏ xả và ớt" },
-            { en: "Heat oil, fry garlic until fragrant", vi: "Đun nóng dầu, phi thơm tỏi" },
-            { en: "Add chicken, stir-fry until golden", vi: "Cho gà vào xào vàng đều" },
-            { en: "Add lemongrass and chili, stir-fry for 5 more minutes", vi: "Thêm xả và ớt, xào thêm 5 phút" },
-            { en: "Season to taste and serve hot with rice", vi: "Nêm nếm vừa ăn, dọn nóng với cơm" },
-        ]
-    };
-}
+// Note: All recipes are fetched from TheMealDB API
+// The AI agent handles translation and language-specific responses
 
 function calculateSavings(bestDeals: GroceryItem[], language: 'en' | 'vi'): string {
     const totalSaved = bestDeals.reduce((sum, item) => {
