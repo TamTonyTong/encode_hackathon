@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
 import LanguageToggle from "../../components/LanguageToggle";
@@ -63,7 +63,7 @@ const DELIVERY_STEPS: DeliveryStep[] = [
     },
 ];
 
-export default function ProgressPage() {
+function ProgressContent() {
     const { language, t } = useLanguage();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -157,22 +157,20 @@ export default function ProgressPage() {
                             return (
                                 <div key={step.id} className="flex flex-col items-center">
                                     <div
-                                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-300 ${
-                                            isCompleted
+                                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-300 ${isCompleted
                                                 ? "bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] text-black"
                                                 : isCurrent
-                                                ? "bg-[var(--accent-primary)] text-black ring-4 ring-[var(--accent-primary)]/30"
-                                                : "bg-[var(--bg-surface)] text-[var(--text-muted)]"
-                                        }`}
+                                                    ? "bg-[var(--accent-primary)] text-black ring-4 ring-[var(--accent-primary)]/30"
+                                                    : "bg-[var(--bg-surface)] text-[var(--text-muted)]"
+                                            }`}
                                     >
                                         {isCompleted ? "✓" : step.icon}
                                     </div>
                                     <span
-                                        className={`mt-3 text-xs font-medium text-center max-w-[80px] ${
-                                            isCompleted || isCurrent
+                                        className={`mt-3 text-xs font-medium text-center max-w-[80px] ${isCompleted || isCurrent
                                                 ? "text-[var(--text-primary)]"
                                                 : "text-[var(--text-muted)]"
-                                        }`}
+                                            }`}
                                     >
                                         {language === "vi" ? step.titleVi : step.titleEn}
                                     </span>
@@ -236,5 +234,13 @@ export default function ProgressPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function ProgressPage() {
+    return (
+        <Suspense fallback={<div className="p-8 text-center text-[var(--text-muted)]">Loading...</div>}>
+            <ProgressContent />
+        </Suspense>
     );
 }
