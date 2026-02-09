@@ -57,12 +57,12 @@ export default function PantryPage() {
 
     return (
         <div className="h-[calc(100vh-6rem)] flex flex-col gap-6">
-            <div className="flex items-center justify-between shrink-0 px-1">
+            <div className="flex items-start justify-between shrink-0">
                 <div>
-                    <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight text-balance">
                         {language === 'vi' ? "Tủ Bếp Của Tôi" : "My Pantry"}
                     </h1>
-                    <p className="text-sm text-[var(--text-secondary)]">
+                    <p className="text-sm text-[var(--text-secondary)] mt-1">
                         {language === 'vi' ? "Quản lý nguyên liệu có sẵn" : "Manage available ingredients"}
                     </p>
                 </div>
@@ -73,10 +73,10 @@ export default function PantryPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                 {/* Left Column: List & Controls */}
-                <div className="lg:col-span-2 flex flex-col gap-4 h-full glass-panel rounded-2xl p-6 border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl">
+                <div className="lg:col-span-2 flex flex-col gap-4 h-full glass-panel rounded-2xl p-6 border border-[var(--border-subtle)] bg-[var(--bg-glass)]/50 backdrop-blur-xl shadow-lg">
 
                     {/* Controls */}
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-5">
                         {/* Search and Add */}
                         <div className="flex gap-2">
                             <div className="relative flex-1">
@@ -88,7 +88,7 @@ export default function PantryPage() {
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder={language === 'vi' ? "Tìm kiếm..." : "Search ingredients..."}
-                                    className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl pl-10 pr-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors"
+                                    className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl pl-10 pr-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-hover)] focus:ring-1 focus:ring-[var(--accent-primary)]/30 transition-all duration-200"
                                 />
                             </div>
                             <form onSubmit={handleAddItem} className="flex gap-2 flex-1">
@@ -97,7 +97,7 @@ export default function PantryPage() {
                                     value={newItemName}
                                     onChange={(e) => setNewItemName(e.target.value)}
                                     placeholder={language === 'vi' ? "Thêm món mới..." : "Add new item..."}
-                                    className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-colors"
+                                    className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-hover)] focus:ring-1 focus:ring-[var(--accent-primary)]/30 transition-all duration-200"
                                 />
                                 <button
                                     type="submit"
@@ -115,9 +115,9 @@ export default function PantryPage() {
                                 <button
                                     key={cat}
                                     onClick={() => setActiveCategory(cat)}
-                                    className={`px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${activeCategory === cat
-                                            ? "bg-[var(--accent-primary)] text-white font-medium"
-                                            : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)]"
+                                    className={`px-3 py-1.5 rounded-full whitespace-nowrap transition-all duration-200 border ${activeCategory === cat
+                                            ? "bg-[var(--accent-primary)] text-white font-medium border-[var(--accent-primary)]"
+                                            : "bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:border-[var(--border-hover)]"
                                         }`}
                                 >
                                     {cat}
@@ -127,15 +127,16 @@ export default function PantryPage() {
                     </div>
 
                     {/* Items List */}
-                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar mt-2">
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                         {filteredItems.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-40 text-center opacity-50">
-                                <div className="text-4xl mb-2">🥥</div>
-                                <p className="text-sm text-[var(--text-muted)]">No items found</p>
+                            <div className="flex flex-col items-center justify-center h-40 text-center">
+                                <div className="text-5xl mb-3 opacity-40">🥥</div>
+                                <p className="text-sm text-[var(--text-muted)]">{activeCategory === 'All' ? 'No pantry items yet' : `No items in ${activeCategory}`}</p>
+                                <p className="text-xs text-[var(--text-muted)] mt-1 opacity-60">Add ingredients to get started</p>
                             </div>
                         ) : (
                             filteredItems.map(item => (
-                                <div key={item.id} className="group flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] transition-all">
+                                <div key={item.id} className="group flex items-center justify-between p-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-all duration-200">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-lg bg-[var(--background)] flex items-center justify-center text-lg border border-[var(--border-subtle)]">
                                             {item.category === 'Vegetables' ? '🥬' :
@@ -172,25 +173,25 @@ export default function PantryPage() {
                 {/* Right Column: Suggestions / Stats */}
                 <div className="flex flex-col gap-6">
                     {/* Quick Stats */}
-                    <div className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-primary)]/80 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg">
+                    <div className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-primary)]/80 rounded-2xl p-6 text-white relative overflow-hidden shadow-lg border border-[var(--accent-primary)]/50">
                         <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl leading-none font-bold">5</div>
-                        <h3 className="text-lg font-bold mb-1">{language === 'vi' ? "Sắp hết hạn" : "Expiring Soon"}</h3>
-                        <p className="text-white/80 text-sm mb-4">
+                        <h3 className="text-lg font-bold mb-2 relative z-10">{language === 'vi' ? "Sắp hết hạn" : "Expiring Soon"}</h3>
+                        <p className="text-white/90 text-sm mb-4 relative z-10">
                             {language === 'vi' ? "Bạn có 5 món cần dùng ngay" : "You have items expiring this week"}
                         </p>
-                        <button className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-lg text-xs font-semibold transition-colors">
+                        <button className="px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-lg text-xs font-semibold transition-all duration-200 relative z-10 active:scale-95">
                             {language === 'vi' ? "Xem Gợi Ý Nấu Ăn" : "View Recipes"}
                         </button>
                     </div>
 
                     {/* Shopping List Teaser */}
-                    <div className="flex-1 glass-panel rounded-2xl p-6 border border-[var(--border-subtle)] flex flex-col">
-                        <h3 className="font-bold text-[var(--text-primary)] mb-4">{language === 'vi' ? "Cần Mua Thêm" : "Running Low"}</h3>
+                    <div className="flex-1 glass-panel rounded-2xl p-6 border border-[var(--border-subtle)] flex flex-col shadow-lg">
+                        <h3 className="font-bold text-[var(--text-primary)] mb-5">{language === 'vi' ? "Cần Mua Thêm" : "Running Low"}</h3>
                         <div className="space-y-3 flex-1">
                             {["Milk", "Bread", "Eggs"].map(item => (
-                                <div key={item} className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] opacity-70">
+                                <div key={item} className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-all duration-200 group">
                                     <span className="text-sm text-[var(--text-primary)]">{item}</span>
-                                    <button className="text-[var(--accent-primary)] text-xs hover:underline">
+                                    <button className="text-[var(--accent-primary)] text-xs hover:font-semibold transition-all duration-200 opacity-70 group-hover:opacity-100">
                                         + Add
                                     </button>
                                 </div>

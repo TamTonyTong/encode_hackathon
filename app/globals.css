@@ -33,13 +33,20 @@
     --text-secondary: hsl(var(--muted-foreground));
     --text-muted: hsl(var(--muted-foreground));
     --bg-surface: hsl(var(--card));
-    --bg-glass: hsl(var(--background) / 0.8);
+    --bg-glass: hsl(var(--background) / 0.7);
+    --bg-void: hsl(var(--background));
     --accent-primary: hsl(var(--primary));
+    --accent-primary-hover: hsl(20.5 95% 55%);
     --accent-glow: hsl(var(--primary) / 0.1);
-    --border-subtle: hsl(var(--border));
+    --border-subtle: hsl(var(--border) / 0.6);
     --border-active: hsl(var(--ring));
+    --border-hover: hsl(var(--primary));
+    --shadow-sm: 0 2px 4px hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.15);
     --status-success: 142 71% 45%;
     --status-error: 0 84% 60%;
+    --transition-fast: 200ms ease-out;
+    --transition-normal: 300ms ease-out;
   }
 
   .light {
@@ -137,4 +144,23 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border) / 0.5);
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
 }
