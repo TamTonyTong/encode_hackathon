@@ -70,6 +70,12 @@ export default function GroceryPage() {
     const { allRecipes, virtualItems } = useMemo(() => {
         const newVirtualItems: GroceryItem[] = [];
         
+        // Define available stores for random assignment
+        const VIRTUAL_STORES = [
+            { name: { en: "Bach Hoa Xanh", vi: "Bách Hóa Xanh" }, logo: "🟢" },
+            { name: { en: "WinMart", vi: "WinMart" }, logo: "🔴" }
+        ];
+        
         const aiRecipes = generatedRecipes.map(r => {
             const recipeIngredients = r.ingredients.map((ing, idx) => {
                 const existingItem = findMatchingItem(ing.name.en, ing.name.vi);
@@ -84,23 +90,40 @@ export default function GroceryPage() {
                 const existingVirtual = newVirtualItems.find(vi => vi.name.en === ing.name.en);
                 if (existingVirtual) return existingVirtual.id;
 
+                // Randomize Base Price (20k - 100k VND)
+                const basePriceVND = Math.floor(Math.random() * (100000 - 20000 + 1) + 20000);
+                const basePriceUSD = basePriceVND / 25000;
+
+                // Randomize Store Availability (1 or both stores)
+                const selectedStores = VIRTUAL_STORES.filter(() => Math.random() > 0.3);
+                // Ensure at least one store
+                if (selectedStores.length === 0) {
+                    selectedStores.push(VIRTUAL_STORES[Math.floor(Math.random() * VIRTUAL_STORES.length)]);
+                }
+
+                const prices = selectedStores.map(store => {
+                    // Price variance (+/- 15%)
+                    const variance = 0.85 + Math.random() * 0.3;
+                    const priceVND = Math.round(basePriceVND * variance / 1000) * 1000;
+                    
+                    return {
+                        storeName: store.name,
+                        logo: store.logo,
+                        priceVND: priceVND,
+                        priceUSD: parseFloat((priceVND / 25000).toFixed(2)),
+                        distanceKm: parseFloat((1 + Math.random() * 9).toFixed(1)), // 1-10km
+                        inStock: true
+                    };
+                });
+
                 newVirtualItems.push({
                     id: virtualId,
                     name: ing.name,
                     category: { en: "AI Suggested", vi: "AI Gợi ý" },
                     image: "🥗", // Generic icon
-                    basePriceVND: 50000, // Estimated price
-                    basePriceUSD: 2.00,
-                    prices: [
-                        {
-                            storeName: { en: "Market Estimate", vi: "Giá ước tính" },
-                            logo: "⚖️",
-                            priceVND: 50000,
-                            priceUSD: 2.00,
-                            distanceKm: 1.0,
-                            inStock: true
-                        }
-                    ]
+                    basePriceVND: basePriceVND,
+                    basePriceUSD: parseFloat(basePriceUSD.toFixed(2)),
+                    prices: prices
                 });
                 return virtualId;
             });
