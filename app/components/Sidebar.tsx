@@ -11,12 +11,11 @@ export default function Sidebar() {
     useEffect(() => {
         setMounted(true);
     }, []);
-    
+
     const menuItems = [
         { name: "Meal Plan", icon: "🍱", href: "/dashboard" },
         { name: "Pantry", icon: "🥫", href: "/dashboard/pantry" },
         { name: "Grocery", icon: "🛒", href: "/dashboard/grocery" },
-        { name: "Profile", icon: "👤", href: "/dashboard/profile" },
     ];
 
     return (
@@ -34,11 +33,10 @@ export default function Sidebar() {
                         <Link
                             key={item.name}
                             href={item.href}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group border border-transparent ${
-                                isActive 
-                                    ? "bg-[var(--accent-glow)] text-[var(--accent-primary)] border-[var(--border-active)]" 
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group border border-transparent ${isActive
+                                    ? "bg-[var(--accent-glow)] text-[var(--accent-primary)] border-[var(--border-active)]"
                                     : "text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] hover:border-[var(--border-subtle)]"
-                            }`}
+                                }`}
                         >
                             <span className={`text-xl transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`}>{item.icon}</span>
                             <span className="font-medium">{item.name}</span>

@@ -16,14 +16,14 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-8 text-[var(--text-secondary)]">
                 <a href="#features" className="hover:text-[var(--accent-primary)] transition-colors duration-200 text-sm font-medium">Features</a>
                 <a href="#how-it-works" className="hover:text-[var(--accent-primary)] transition-colors duration-200 text-sm font-medium">How it Works</a>
-                <a href="https://github.com/your-repo" className="hover:text-[var(--accent-primary)] transition-colors duration-200 text-sm font-medium">Github</a>
+                <a href="https://github.com/katiue/encode_hackathon/tree/master" className="hover:text-[var(--accent-primary)] transition-colors duration-200 text-sm font-medium">Github</a>
             </div>
 
             <Link
                 href="/dashboard"
                 className="px-5 py-2.5 bg-[var(--accent-primary)] text-white text-sm font-bold rounded-lg hover:bg-[var(--accent-primary-hover)] active:scale-95 transition-all duration-200 shadow-lg shadow-[var(--accent-primary)]/20"
             >
-                Launch App
+                Try it now
             </Link>
         </nav>
     );
